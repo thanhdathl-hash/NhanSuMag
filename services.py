@@ -302,3 +302,51 @@ def return_task(store, notifier, user: dict, id_viec: str, *, ly_do: str) -> Res
     store.update_task(id_viec, thay_doi)
     da_gui = notifier.send_message(_chat_nguoi_nhan(store, task), tin.msg_t4_tra_lai(task, ly_do))       # T4
     return Result({**task, **thay_doi}, da_gui)
+
+
+# --- Số liệu cho giao diện (chỉ đọc) ---
+
+_QUY = re.compile(r"\d{4}-Q[1-4]")
+
+
+def employee_kpi(tasks: pd.DataFrame, id_nv: str, quy: str) -> tuple[float | None, int, int]:
+    """(KPI quý hoặc None nếu chưa có việc, số việc đã hoàn thành, tổng số việc)."""
+    cua_nv = tasks[(tasks[config.COL_NGUOI_NHAN] == id_nv) & (tasks[config.COL_QUY] == quy)]
+    return (kpi.quarter_kpi(cua_nv), *kpi.quarter_progress(cua_nv))
+
+
+def kpi_table(tasks: pd.DataFrame, employees: pd.DataFrame, quy: str) -> pd.DataFrame:
+    """KPI quý của từng nhân viên (không gồm quản lý)."""
+    cols = [config.COL_ID_NV, config.COL_TEN, config.KQ_KPI, config.KQ_HOAN_THANH, config.KQ_TONG_VIEC]
+    dong = []
+    for _, nv in employees[employees[config.COL_ROLE] == config.ROLE_NHAN_VIEN].iterrows():
+        diem, xong, tong = employee_kpi(tasks, nv[config.COL_ID_NV], quy)
+        dong.append([nv[config.COL_ID_NV], nv[config.COL_TEN], diem, xong, tong])
+    df = pd.DataFrame(dong, columns=cols)
+    df[config.KQ_KPI] = pd.Series([d[2] for d in dong], dtype=object)   # giữ None, không đổi thành NaN
+    return df
+
+
+def _ngay_hoac_none(s: str) -> date | None:
+    try:
+        return date.fromisoformat(s.strip())
+    except ValueError:
+        return None
+
+
+def overdue_tasks(tasks: pd.DataFrame, today: date) -> pd.DataFrame:
+    """Việc đã qua hạn mà nhân viên chưa nộp. Dòng có hạn chót hỏng bị bỏ qua."""
+    han = tasks[config.COL_HAN_CHOT].map(_ngay_hoac_none)
+    qua_han = han.map(lambda d: d is not None and d < today).astype(bool)
+    return tasks[qua_han & tasks[config.COL_TRANG_THAI].isin(config.TT_CHUA_NOP)]
+
+
+def status_counts(tasks: pd.DataFrame) -> dict[str, int]:
+    dem = tasks[config.COL_TRANG_THAI].value_counts()
+    return {tt: int(dem.get(tt, 0)) for tt in config.TRANG_THAI}
+
+
+def quarters(tasks: pd.DataFrame, today: date) -> list[str]:
+    """Các quý có việc, cộng quý hiện tại, mới nhất trước."""
+    co = {q for q in tasks[config.COL_QUY] if _QUY.fullmatch(q)}
+    return sorted(co | {kpi.quarter_of(today)}, reverse=True)

@@ -69,3 +69,6 @@ MSG_TAI_KHOAN_KHOA = "Nhập sai quá nhiều lần. Vui lòng thử lại sau 1
 MSG_DA_LUU = "Đã lưu."
 MSG_DA_LUU_CHUA_GUI = "Đã lưu nhưng chưa gửi được thông báo Telegram."
 MSG_LOI_SHEET = "Không kết nối được Google Sheets. Dữ liệu bạn nhập vẫn còn, vui lòng thử lại."
+
+# --- Tên cột của bảng kết quả KPI do services.kpi_table trả về ---
+KQ_KPI, KQ_HOAN_THANH, KQ_TONG_VIEC = "KPI", "Hoan_Thanh", "Tong_Viec"
