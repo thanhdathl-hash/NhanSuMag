@@ -1,0 +1,10 @@
+# Cấu hình không bí mật của app (được commit).
+[server]
+# Giới hạn tải lên tính bằng MB, khớp với config.ANH_MAX_BYTES
+maxUploadSize = 5
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

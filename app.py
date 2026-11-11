@@ -1,4 +1,5 @@
 """Giao diện Streamlit. Không ghi thẳng vào Sheet, không gửi Telegram: mọi thao tác đi qua services.py."""
+import re
 from datetime import datetime, timezone
 
 import streamlit as st
@@ -211,6 +212,200 @@ def man_hinh_nhan_vien(user: dict, viec_thay_duoc) -> None:
         tab_kpi_cua_toi(viec_thay_duoc, user)
 
 
+# --- Màn hình Quản lý ---
+
+GO_TAY = ""          # lựa chọn "không dùng mẫu" trong ô chọn mẫu
+TAT_CA = "Tất cả"
+TRONG_SO_MAC_DINH = 3
+_LINK_AN_TOAN = re.compile(r"https?://[^\s<>]+")
+
+
+def ten_theo_id(nhan_su) -> dict:
+    return dict(zip(nhan_su[config.COL_ID_NV], nhan_su[config.COL_TEN]))
+
+
+def cb_chon_mau() -> None:
+    """Chọn mẫu thì tự điền tên, mô tả, trọng số. Trọng số được chép sang việc, sửa mẫu sau không đổi việc cũ."""
+    id_mau = st.session_state.get("gv_mau")
+    if not id_mau:
+        return
+    try:
+        mau = load_templates()
+    except db.StoreError:
+        flash("error", config.MSG_LOI_SHEET)
+        return
+    khop = mau[mau[config.COL_ID_MAU] == id_mau]
+    if khop.empty:
+        return
+    m = khop.iloc[0]
+    st.session_state["gv_ten"] = m[config.COL_TEN_VIEC]
+    st.session_state["gv_mo_ta"] = m[config.COL_MO_TA]
+    try:
+        trong_so = int(m[config.COL_TRONG_SO_DIEM])
+    except ValueError:
+        trong_so = TRONG_SO_MAC_DINH
+    st.session_state["gv_trong_so"] = min(config.TRONG_SO_MAX, max(config.TRONG_SO_MIN, trong_so))
+
+
+def cb_giao_viec() -> None:
+    da_luu = thuc_hien(
+        services.create_task, get_store(), get_notifier(), st.session_state["user"],
+        ten_viec=st.session_state.get("gv_ten", ""),
+        mo_ta=st.session_state.get("gv_mo_ta", ""),
+        nguoi_nhan=st.session_state.get("gv_nguoi_nhan") or "",
+        han_chot=st.session_state.get("gv_han_chot"),
+        trong_so=int(st.session_state.get("gv_trong_so", TRONG_SO_MAC_DINH)),
+        today=services.hom_nay(),
+    )
+    if da_luu:   # xóa ô nhập để giao việc tiếp; khi lỗi thì giữ nguyên
+        st.session_state["gv_mau"] = GO_TAY
+        st.session_state["gv_ten"] = ""
+        st.session_state["gv_mo_ta"] = ""
+        st.session_state["gv_trong_so"] = TRONG_SO_MAC_DINH
+
+
+def tab_giao_viec(nhan_su) -> None:
+    try:
+        mau = load_templates()
+    except db.StoreError:
+        st.error(config.MSG_LOI_SHEET)
+        return
+    ten_mau = dict(zip(mau[config.COL_ID_MAU], mau[config.COL_TEN_VIEC]))
+    st.selectbox("Chọn từ thư viện mẫu", [GO_TAY, *ten_mau], key="gv_mau", on_change=cb_chon_mau,
+                 format_func=lambda i: "(Gõ tay)" if i == GO_TAY else ten_mau[i])
+    st.text_input("Tên việc", key="gv_ten")
+    st.text_area("Mô tả", key="gv_mo_ta")
+    st.session_state.setdefault("gv_trong_so", TRONG_SO_MAC_DINH)
+    st.number_input("Trọng số (1 đến 5)", min_value=config.TRONG_SO_MIN, max_value=config.TRONG_SO_MAX,
+                    step=1, key="gv_trong_so")
+    nhan_vien = nhan_su[nhan_su[config.COL_ROLE] == config.ROLE_NHAN_VIEN]
+    ten = ten_theo_id(nhan_vien)
+    st.selectbox("Người nhận", list(ten), index=None, placeholder="Chọn nhân viên", key="gv_nguoi_nhan",
+                 format_func=lambda i: f"{ten[i]} ({i})")
+    st.session_state.setdefault("gv_han_chot", services.hom_nay())
+    st.date_input("Hạn chót", format="DD/MM/YYYY", key="gv_han_chot")
+    st.button("Giao việc", key="gv_submit", type="primary", on_click=cb_giao_viec)
+
+
+@st.cache_data(ttl=600, max_entries=50, show_spinner=False)
+def _tai_anh(file_id: str) -> bytes:
+    """Tải ảnh ở phía máy chủ. Trình duyệt chỉ nhận dữ liệu ảnh, không nhận URL chứa token."""
+    du_lieu = get_notifier().fetch_photo(file_id)
+    if du_lieu is None:
+        raise LookupError(file_id)     # không cache kết quả thất bại
+    return du_lieu
+
+
+def hien_chung_minh(gia_tri: str) -> None:
+    if gia_tri.startswith(config.TG_PREFIX):
+        try:
+            st.image(_tai_anh(gia_tri[len(config.TG_PREFIX):]), width=480)
+        except LookupError:
+            st.warning("Chưa tải được ảnh chứng minh từ Telegram. "
+                       "Ảnh vẫn nằm trong cuộc trò chuyện của bạn với bot.")
+        except Exception:   # dữ liệu tải về không phải ảnh hợp lệ
+            st.warning("Không hiển thị được ảnh chứng minh. Hãy xem ảnh trong cuộc trò chuyện với bot.")
+    elif _LINK_AN_TOAN.fullmatch(gia_tri):
+        st.markdown(f"[Mở link chứng minh](<{gia_tri}>)")
+    elif gia_tri:
+        st.code(gia_tri)     # không phải link hợp lệ: chỉ hiện dạng chữ
+    else:
+        st.caption("(Không có chứng minh)")
+
+
+def cb_duyet(id_viec: str) -> None:
+    thuc_hien(services.approve_task, get_store(), get_notifier(), st.session_state["user"], id_viec,
+              stars=st.session_state.get(f"sao_{id_viec}"), today=services.hom_nay())
+
+
+def cb_tra_lai(id_viec: str) -> None:
+    thuc_hien(services.return_task, get_store(), get_notifier(), st.session_state["user"], id_viec,
+              ly_do=st.session_state.get(f"ly_do_{id_viec}", ""))
+
+
+def tab_cho_duyet(tasks, nhan_su) -> None:
+    cho = tasks[tasks[config.COL_TRANG_THAI] == config.TT_CHO_DUYET]
+    if cho.empty:
+        st.info("Không có việc nào đang chờ duyệt.")
+        return
+    ten = ten_theo_id(nhan_su)
+    for v in cho.to_dict("records"):
+        id_viec = v[config.COL_ID_VIEC]
+        with st.container(border=True):
+            the_viec(v)
+            st.caption(f"Người làm: {ten.get(v[config.COL_NGUOI_NHAN], v[config.COL_NGUOI_NHAN])} · "
+                       f"Báo cáo ngày: {v[config.COL_NGAY_HOAN_THANH]}")
+            hien_chung_minh(v[config.COL_LINK])
+            cot_duyet, cot_tra = st.columns(2)
+            with cot_duyet:
+                st.radio("Chấm sao", list(range(1, 6)), index=None, horizontal=True, key=f"sao_{id_viec}",
+                         format_func=lambda n: f"{n} ⭐")
+                st.button("Duyệt", key=f"duyet_{id_viec}", type="primary", on_click=cb_duyet, args=(id_viec,))
+            with cot_tra:
+                st.text_input("Lý do trả lại", key=f"ly_do_{id_viec}")
+                st.button("Trả lại", key=f"tra_{id_viec}", on_click=cb_tra_lai, args=(id_viec,))
+
+
+def tab_tong_quan(tasks, nhan_su) -> None:
+    hom_nay = services.hom_nay()
+    ds_quy = services.quarters(tasks, hom_nay)
+    quy = st.selectbox("Quý", ds_quy, index=ds_quy.index(services.current_quarter(hom_nay)), key="tq_quy")
+    trong_quy = tasks[tasks[config.COL_QUY] == quy]
+
+    dem = services.status_counts(trong_quy)
+    for cot, trang_thai in zip(st.columns(len(config.TRANG_THAI)), config.TRANG_THAI):
+        cot.metric(trang_thai, str(dem[trang_thai]))
+
+    st.subheader(f"KPI quý {quy}")
+    bang = services.kpi_table(tasks, nhan_su, quy)
+    hien_thi = bang[[config.COL_TEN]].rename(columns={config.COL_TEN: "Nhân viên"})
+    hien_thi["KPI"] = [("Chưa có việc" if d is None else f"{d:.2f}%") for d in bang[config.KQ_KPI]]
+    hien_thi["Việc đã hoàn thành"] = [f"{x}/{t}" for x, t in zip(bang[config.KQ_HOAN_THANH], bang[config.KQ_TONG_VIEC])]
+    st.dataframe(hien_thi, hide_index=True, width="stretch")
+    st.caption("Việc chưa đến hạn vẫn nằm trong mục tiêu quý, nên KPI giữa quý thấp và tăng dần khi việc được duyệt.")
+    co_kpi = bang[bang[config.KQ_KPI].notna()]
+    if not co_kpi.empty:
+        st.bar_chart(co_kpi.set_index(config.COL_TEN)[config.KQ_KPI].astype(float), y_label="KPI (%)")
+
+    st.subheader("Việc quá hạn chưa nộp")
+    qua_han = services.overdue_tasks(tasks, hom_nay)
+    if qua_han.empty:
+        st.info("Không có việc quá hạn.")
+    else:
+        st.dataframe(qua_han[[config.COL_TEN_VIEC, config.COL_NGUOI_NHAN, config.COL_HAN_CHOT, config.COL_TRANG_THAI]],
+                     hide_index=True, width="stretch")
+
+
+def tab_tat_ca(tasks, nhan_su) -> None:
+    ten = ten_theo_id(nhan_su)
+    c1, c2, c3 = st.columns(3)
+    nv = c1.selectbox("Nhân viên", [TAT_CA, *ten], key="all_nv",
+                      format_func=lambda i: i if i == TAT_CA else f"{ten[i]} ({i})")
+    tt = c2.selectbox("Trạng thái", [TAT_CA, *config.TRANG_THAI], key="all_tt")
+    quy = c3.selectbox("Quý", [TAT_CA, *services.quarters(tasks, services.hom_nay())], key="all_quy")
+    loc = tasks
+    if nv != TAT_CA:
+        loc = loc[loc[config.COL_NGUOI_NHAN] == nv]
+    if tt != TAT_CA:
+        loc = loc[loc[config.COL_TRANG_THAI] == tt]
+    if quy != TAT_CA:
+        loc = loc[loc[config.COL_QUY] == quy]
+    st.caption(f"{len(loc)} việc")
+    st.dataframe(loc, hide_index=True, width="stretch")
+
+
+def man_hinh_quan_ly(tasks, nhan_su) -> None:
+    t1, t2, t3, t4 = st.tabs(["Tổng quan", "Giao việc", config.TT_CHO_DUYET, "Tất cả công việc"])
+    with t1:
+        tab_tong_quan(tasks, nhan_su)
+    with t2:
+        tab_giao_viec(nhan_su)
+    with t3:
+        tab_cho_duyet(tasks, nhan_su)
+    with t4:
+        tab_tat_ca(tasks, nhan_su)
+
+
 # --- Điểm vào ---
 
 def main() -> None:
@@ -246,8 +441,10 @@ def main() -> None:
 
     if user[config.COL_ROLE] == config.ROLE_NHAN_VIEN:
         man_hinh_nhan_vien(user, viec_thay_duoc)
+    elif user[config.COL_ROLE] == config.ROLE_QUAN_LY:
+        man_hinh_quan_ly(viec_thay_duoc, nhan_su)
     else:
-        st.info("Màn hình quản lý đang được xây dựng.")
+        st.error(f"Tài khoản chưa được gán vai trò hợp lệ ở cột {config.COL_ROLE}. Hãy báo quản lý.")
 
 
 main()
