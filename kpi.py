@@ -1,6 +1,8 @@
 """Công thức KPI. Chỉ gồm hàm thuần: không đọc Sheet, không đọc đồng hồ."""
 from datetime import date
 
+import pandas as pd
+
 import config
 
 
@@ -34,3 +36,33 @@ def quarter_of(d: date) -> str:
 def month_of(d: date) -> str:
     """Tháng của một ngày, ví dụ 2026-11."""
     return f"{d.year}-{d.month:02d}"
+
+
+def _so(cot: pd.Series) -> pd.Series:
+    """Đổi cột chuỗi sang số. Chấp nhận dấu phẩy thập phân; ô trống hoặc hỏng coi là 0."""
+    chuoi = cot.astype(str).str.strip().str.replace(",", ".", regex=False)
+    return pd.to_numeric(chuoi, errors="coerce").fillna(0)
+
+
+def quarter_target(tasks: pd.DataFrame) -> float:
+    """Tổng điểm mục tiêu quý (D1-A): tổng trọng số mọi việc được giao, ở bất kỳ trạng thái nào.
+
+    `tasks` đã được lọc sẵn theo một nhân viên và một quý.
+    Đây là nơi duy nhất chứa quyết định D1.
+    """
+    return float(_so(tasks[config.COL_TRONG_SO]).sum())
+
+
+def quarter_kpi(tasks: pd.DataFrame) -> float | None:
+    """KPI quý tính bằng phần trăm, làm tròn 2 chữ số. None khi chưa có việc nào."""
+    muc_tieu = quarter_target(tasks)
+    if muc_tieu <= 0:
+        return None
+    xong = tasks[tasks[config.COL_TRANG_THAI] == config.TT_HOAN_THANH]
+    thuc_te = float(_so(xong[config.COL_DIEM]).sum())
+    return round(thuc_te / muc_tieu * 100, 2)
+
+
+def quarter_progress(tasks: pd.DataFrame) -> tuple[int, int]:
+    """(số việc đã hoàn thành, tổng số việc)."""
+    return int((tasks[config.COL_TRANG_THAI] == config.TT_HOAN_THANH).sum()), len(tasks)
