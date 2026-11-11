@@ -3,6 +3,7 @@
 Mọi ô đọc lên đều là chuỗi. Mọi lần ghi dùng chế độ RAW để Sheets không tự diễn giải
 ngày tháng hay công thức.
 """
+import google.auth.exceptions
 import gspread
 import pandas as pd
 import requests
@@ -12,7 +13,8 @@ import config
 
 _DOC_THO = "UNFORMATTED_VALUE"
 _GHI_THO = "RAW"
-_LOI_MANG = (gspread.exceptions.GSpreadException, requests.RequestException)
+_LOI_MANG = (gspread.exceptions.GSpreadException, requests.RequestException,
+             google.auth.exceptions.GoogleAuthError, PermissionError)
 
 
 class StoreError(Exception):
@@ -27,11 +29,21 @@ class TaskNotFound(StoreError):
     """Không có dòng nào mang khóa cần tìm."""
 
 
+def _loi(e: Exception) -> StoreError:
+    """Đổi lỗi của gspread, mạng hay Google thành StoreError với thông điệp tiếng Việt đúng nguyên nhân."""
+    ma = getattr(getattr(e, "response", None), "status_code", None)
+    if isinstance(e, PermissionError) or ma == 403:
+        return StoreError(config.MSG_LOI_QUYEN_SHEET)
+    if isinstance(e, google.auth.exceptions.GoogleAuthError):
+        return StoreError(config.MSG_LOI_XAC_THUC)
+    return StoreError(config.MSG_LOI_SHEET)
+
+
 def _chuoi(v) -> str:
-    """Đổi giá trị ô sang chuỗi; số nguyên dạng 3.0 thành "3"."""
+    """Đổi giá trị ô sang chuỗi đã cắt khoảng trắng thừa; số nguyên dạng 3.0 thành "3"."""
     if isinstance(v, float) and v.is_integer():
         return str(int(v))
-    return "" if v is None else str(v)
+    return "" if v is None else str(v).strip()
 
 
 class SheetStore:
@@ -47,7 +59,7 @@ class SheetStore:
         except gspread.WorksheetNotFound as e:
             raise SchemaError(f"File Sheet thiếu bảng {sheet}") from e
         except _LOI_MANG as e:
-            raise StoreError(config.MSG_LOI_SHEET) from e
+            raise _loi(e) from e
         if not values:
             return [], []
         tieu_de = [_chuoi(x).strip() for x in values[0]]
@@ -85,7 +97,7 @@ class SheetStore:
         try:
             self._spreadsheet.worksheet(sheet).batch_update(data, value_input_option=_GHI_THO)
         except _LOI_MANG as e:
-            raise StoreError(config.MSG_LOI_SHEET) from e
+            raise _loi(e) from e
 
     # --- công khai ---
 
@@ -129,7 +141,7 @@ class SheetStore:
             self._spreadsheet.worksheet(config.SHEET_VIEC).append_row(
                 values, value_input_option=_GHI_THO, table_range="A1")
         except _LOI_MANG as e:
-            raise StoreError(config.MSG_LOI_SHEET) from e
+            raise _loi(e) from e
 
     def update_task(self, id_viec: str, fields: dict) -> None:
         self._sua(config.SHEET_VIEC, id_viec, fields)
@@ -144,4 +156,7 @@ def open_store(secrets) -> SheetStore:
         client = gspread.service_account_from_dict(dict(secrets["gcp_service_account"]))
         return SheetStore(client.open_by_key(secrets["sheet_id"]))
     except _LOI_MANG as e:
-        raise StoreError(config.MSG_LOI_SHEET) from e
+        raise _loi(e) from e
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
+        # thiếu khóa trong secrets hoặc private_key dán sai; không đưa nội dung lỗi ra ngoài
+        raise StoreError(config.MSG_LOI_SECRETS) from e

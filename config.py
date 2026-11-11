@@ -68,6 +68,12 @@ MSG_DANG_NHAP_SAI = "Thông tin đăng nhập không đúng."
 MSG_TAI_KHOAN_KHOA = "Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút."
 MSG_DA_LUU = "Đã lưu."
 MSG_DA_LUU_CHUA_GUI = "Đã lưu nhưng chưa gửi được thông báo Telegram."
+MSG_LOI_QUYEN_SHEET = ("Google từ chối truy cập file Sheet. Hãy kiểm tra: file đã được chia sẻ cho email của "
+                       "service account với quyền Người chỉnh sửa, và Google Sheets API đã được bật.")
+MSG_LOI_XAC_THUC = ("Google không chấp nhận khóa service account. Hãy kiểm tra mục [gcp_service_account] "
+                    "trong secrets.")
+MSG_LOI_SECRETS = ("Phần secrets của app thiếu hoặc sai định dạng (sheet_id, gcp_service_account). "
+                   "Hãy chép lại từ file khóa JSON theo README mục 4.")
 MSG_LOI_SHEET = "Không kết nối được Google Sheets. Dữ liệu bạn nhập vẫn còn, vui lòng thử lại."
 
 # --- Tên cột của bảng kết quả KPI do services.kpi_table trả về ---

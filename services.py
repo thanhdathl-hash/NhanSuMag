@@ -38,6 +38,7 @@ class Result:
     task: dict              # dòng việc sau khi ghi
     notified: bool          # False: đã lưu nhưng chưa gửi được Telegram
     kpi_saved: bool = True  # False: đã duyệt nhưng chưa ghi được KPI quý vào bảng nhân sự
+    warning: str | None = None   # đã lưu, nhưng có điều người dùng cần biết
 
 
 # --- Thời gian ---
@@ -118,9 +119,19 @@ def create_task(store, notifier, user: dict, *, ten_viec: str, mo_ta: str, nguoi
     if nguoi is None or nguoi[config.COL_ROLE] != config.ROLE_NHAN_VIEN:
         raise InvalidInput("Người nhận phải là một nhân viên trong danh sách.")
 
+    da_co = store.tasks()
+    # Chặn bấm "Giao việc" hai lần: cùng tên, cùng người, cùng hạn, giao trong hôm nay và chưa ai bắt đầu
+    trung = da_co[(da_co[config.COL_TEN_VIEC] == ten_viec) & (da_co[config.COL_NGUOI_NHAN] == nguoi_nhan)
+                  & (da_co[config.COL_HAN_CHOT] == han_chot.isoformat())
+                  & (da_co[config.COL_NGAY_GIAO] == today.isoformat())
+                  & (da_co[config.COL_TRANG_THAI] == config.TT_MOI_GIAO)]
+    if not trung.empty:
+        raise InvalidInput("Việc này vừa được giao hôm nay cho cùng người nhận với cùng hạn chót. "
+                           "Nếu muốn giao thêm một việc giống vậy, hãy đổi tên việc.")
+
     task = {k: "" for k in config.VIEC_COLS}
     task.update({
-        config.COL_ID_VIEC: _sinh_id(set(store.tasks()[config.COL_ID_VIEC])),
+        config.COL_ID_VIEC: _sinh_id(set(da_co[config.COL_ID_VIEC])),
         config.COL_TEN_VIEC: ten_viec,
         config.COL_MO_TA: mo_ta,
         config.COL_NGUOI_NHAN: nguoi_nhan,
@@ -191,13 +202,17 @@ def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None =
         if len(photo) > config.ANH_MAX_BYTES:
             raise InvalidInput(f"Ảnh không được lớn hơn {config.ANH_MAX_BYTES // (1024 * 1024)} MB.")
 
+    loi_ql = None
     try:
         chat_ql = find_manager(store.employees())[config.COL_CHAT_ID]
-    except ServiceError:
-        chat_ql = ""
+    except ServiceError as e:
+        chat_ql, loi_ql = "", str(e)
     ten_nv = user.get(config.COL_TEN, user[config.COL_ID_NV])
 
     if co_anh:
+        if loi_ql:
+            raise ServiceError(f"{loi_ql} Vì vậy chưa gửi được ảnh và việc chưa được báo cáo. "
+                               "Hãy báo quản lý, hoặc dán link thay thế.")
         # Telegram là nơi duy nhất giữ ảnh: gửi được rồi mới chuyển trạng thái
         file_id = notifier.send_photo(chat_ql, photo, photo_name or "chung-minh.jpg",
                                       tin.msg_t3(task, ten_nv, None))
@@ -215,6 +230,9 @@ def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None =
         config.COL_NGAY_HOAN_THANH: today.isoformat(),
     }
     store.update_task(id_viec, thay_doi)
+    if loi_ql:
+        return Result({**task, **thay_doi}, False,
+                      warning=f"Đã lưu, nhưng chưa báo được cho quản lý qua Telegram. {loi_ql}")
     if da_gui is None:
         da_gui = notifier.send_message(chat_ql, tin.msg_t3(task, ten_nv, link))    # T3
     return Result({**task, **thay_doi}, da_gui)
@@ -258,7 +276,7 @@ def _chat_nguoi_nhan(store, task: dict) -> str:
 def _ghi_kpi_quy(store, id_nv: str, today: date) -> bool:
     """Ghi KPI quý hiện tại của một nhân viên vào bảng nhân sự (D1-A). False nếu ghi lỗi."""
     try:
-        tasks = store.tasks()
+        tasks = prepare_tasks(store.tasks())
         cua_nv = tasks[(tasks[config.COL_NGUOI_NHAN] == id_nv)
                        & (tasks[config.COL_QUY] == kpi.quarter_of(today))]
         gia_tri = kpi.quarter_kpi(cua_nv)
@@ -332,6 +350,43 @@ def _ngay_hoac_none(s: str) -> date | None:
         return date.fromisoformat(s.strip())
     except ValueError:
         return None
+
+
+def prepare_tasks(tasks: pd.DataFrame) -> pd.DataFrame:
+    """Làm sạch bảng việc trước khi dùng, vì quản lý có thể sửa tay trên Sheet.
+
+    - Bỏ dòng thiếu mã việc và dòng trùng mã (giữ dòng đầu, cũng là dòng mà thao tác ghi sẽ sửa).
+    - Quý và tháng tính lại từ hạn chót (spec mục 5); chỉ dùng ô trên Sheet khi hạn chót hỏng.
+    """
+    df = tasks[tasks[config.COL_ID_VIEC] != ""].drop_duplicates(subset=config.COL_ID_VIEC, keep="first").copy()
+    han = [_ngay_hoac_none(s) for s in df[config.COL_HAN_CHOT]]
+    df[config.COL_QUY] = [kpi.quarter_of(d) if d else cu for d, cu in zip(han, df[config.COL_QUY])]
+    df[config.COL_THANG] = [kpi.month_of(d) if d else cu for d, cu in zip(han, df[config.COL_THANG])]
+    return df
+
+
+def sheet_warnings(tasks: pd.DataFrame, employees: pd.DataFrame) -> list[str]:
+    """Những chỗ dữ liệu trên Sheet cần quản lý sửa. Nhận bảng việc CHƯA qua prepare_tasks."""
+    canh_bao = []
+    so_ql = int((employees[config.COL_ROLE] == config.ROLE_QUAN_LY).sum())
+    if so_ql != 1:
+        canh_bao.append(
+            f"Bảng {config.SHEET_NHAN_SU} phải có đúng một dòng {config.COL_ROLE} = {config.ROLE_QUAN_LY}, "
+            f"hiện có {so_ql}. Thông báo cho quản lý và ảnh chứng minh sẽ không gửi được.")
+    ids = tasks[config.COL_ID_VIEC]
+    thieu = int((ids == "").sum())
+    if thieu:
+        canh_bao.append(f"Bảng {config.SHEET_VIEC} có {thieu} dòng thiếu {config.COL_ID_VIEC}; "
+                        "các dòng này không hiện trong app. Hãy điền mã riêng cho từng dòng hoặc xóa dòng.")
+    trung = sorted(set(ids[(ids != "") & ids.duplicated()]))
+    if trung:
+        canh_bao.append(f"Bảng {config.SHEET_VIEC} có mã việc bị trùng: {', '.join(trung)}. "
+                        "App chỉ dùng dòng đầu tiên của mỗi mã. Hãy đổi mã hoặc xóa dòng thừa.")
+    la = tasks[(ids != "") & ~tasks[config.COL_TRANG_THAI].isin(config.TRANG_THAI)]
+    for _, v in la.iterrows():
+        canh_bao.append(f"Việc {v[config.COL_ID_VIEC]} có {config.COL_TRANG_THAI} là \"{v[config.COL_TRANG_THAI]}\", "
+                        f"không thuộc: {', '.join(config.TRANG_THAI)}. Nhân viên sẽ không thấy việc này.")
+    return canh_bao
 
 
 def overdue_tasks(tasks: pd.DataFrame, today: date) -> pd.DataFrame:

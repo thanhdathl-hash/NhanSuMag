@@ -71,13 +71,15 @@ def thuc_hien(ham, *args, **kwargs) -> bool:
     except services.ServiceError as e:
         flash("error", str(e))
         return False
-    except db.StoreError:
-        flash("error", config.MSG_LOI_SHEET)
+    except db.StoreError as e:
+        flash("error", str(e))
         return False
     st.cache_data.clear()
     if not kq.kpi_saved:
         flash("warning", f"Đã duyệt, nhưng cột {config.COL_KPI_QUY} trên Sheet chưa cập nhật được.")
-    if kq.notified:
+    if kq.warning:
+        flash("warning", kq.warning)
+    elif kq.notified:
         flash("success", config.MSG_DA_LUU)
     else:
         flash("warning", config.MSG_DA_LUU_CHUA_GUI)
@@ -89,8 +91,8 @@ def thuc_hien(ham, *args, **kwargs) -> bool:
 def cb_dang_nhap() -> None:
     try:
         nhan_su = load_employees()
-    except db.StoreError:
-        flash("error", config.MSG_LOI_SHEET)
+    except db.StoreError as e:
+        flash("error", str(e))
         return
     kq = auth.authenticate(nhan_su, st.session_state.get("login_id", ""),
                            st.session_state.get("login_pin", ""), get_guard(), datetime.now(timezone.utc))
@@ -231,8 +233,8 @@ def cb_chon_mau() -> None:
         return
     try:
         mau = load_templates()
-    except db.StoreError:
-        flash("error", config.MSG_LOI_SHEET)
+    except db.StoreError as e:
+        flash("error", str(e))
         return
     khop = mau[mau[config.COL_ID_MAU] == id_mau]
     if khop.empty:
@@ -267,8 +269,8 @@ def cb_giao_viec() -> None:
 def tab_giao_viec(nhan_su) -> None:
     try:
         mau = load_templates()
-    except db.StoreError:
-        st.error(config.MSG_LOI_SHEET)
+    except db.StoreError as e:
+        st.error(str(e))
         return
     ten_mau = dict(zip(mau[config.COL_ID_MAU], mau[config.COL_TEN_VIEC]))
     st.selectbox("Chọn từ thư viện mẫu", [GO_TAY, *ten_mau], key="gv_mau", on_change=cb_chon_mau,
@@ -415,8 +417,8 @@ def main() -> None:
     except db.SchemaError as e:
         st.error(f"File Google Sheet chưa đúng cấu trúc. {e}")
         st.stop()
-    except db.StoreError:
-        st.error(config.MSG_LOI_SHEET)
+    except db.StoreError as e:
+        st.error(str(e))
         st.stop()
 
     user = nguoi_dung_hien_tai(nhan_su)
@@ -433,11 +435,15 @@ def main() -> None:
 
     hien_flash()
     try:
-        # Lọc theo quyền trước khi dữ liệu được đưa ra giao diện
-        viec_thay_duoc = services.visible_tasks(load_tasks(), user)
-    except db.StoreError:
-        st.error(config.MSG_LOI_SHEET)
+        viec_tho = load_tasks()
+    except db.StoreError as e:
+        st.error(str(e))
         st.stop()
+    # Lọc theo quyền trước khi dữ liệu được đưa ra giao diện
+    viec_thay_duoc = services.visible_tasks(services.prepare_tasks(viec_tho), user)
+    if user[config.COL_ROLE] == config.ROLE_QUAN_LY:
+        for canh_bao in services.sheet_warnings(viec_tho, nhan_su):
+            st.warning(canh_bao)
 
     if user[config.COL_ROLE] == config.ROLE_NHAN_VIEN:
         man_hinh_nhan_vien(user, viec_thay_duoc)

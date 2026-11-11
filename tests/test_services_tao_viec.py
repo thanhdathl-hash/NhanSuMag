@@ -65,7 +65,7 @@ def test_id_trung_thi_sinh_lai(store, notifier, ql, monkeypatch):
     it = iter(["aaaaaaaa", "aaaaaaaa", "bbbbbbbb"])
     monkeypatch.setattr(services.secrets, "token_hex", lambda n: next(it))
     tao(store, notifier, ql)
-    tao(store, notifier, ql)
+    tao(store, notifier, ql, ten_viec="Việc thứ hai")
     assert list(store.tasks()[c.COL_ID_VIEC]) == ["V-aaaaaaaa", "V-bbbbbbbb"]
 
 

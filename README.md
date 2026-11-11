@@ -104,7 +104,9 @@ Phần này chưa được kiểm thử tự động. Làm lần lượt và đ�
 
 - **App ngủ sau 12 giờ không ai vào.** Người mở đầu tiên bấm nút đánh thức và chờ khoảng một phút.
 - **Sửa hoặc xóa việc** làm thẳng trên Sheet, app không có chức năng này. Khi sửa ngày, giữ đúng dạng `YYYY-MM-DD`. Sau khi sửa, bấm "Làm mới dữ liệu" trong app (dữ liệu được nhớ tạm 30 giây).
-- **Đổi hạn chót của một việc** thì sửa luôn cột `Thang` và `Quy` của dòng đó, vì việc thuộc quý nào là do hạn chót quyết định.
+- **Việc thuộc quý nào là do hạn chót quyết định.** App tự tính quý từ cột `Han_Chot`, kể cả khi cột `Thang` và `Quy` trên Sheet để trống hoặc chưa sửa theo.
+- **Thêm việc bằng tay trên Sheet** thì mỗi dòng phải có `ID_Viec` riêng, không trùng. Dòng thiếu mã hoặc trùng mã sẽ không dùng được, và app hiện cảnh báo cho quản lý.
+- **Không giao được hai việc giống hệt nhau trong cùng một ngày** (cùng tên, người nhận, hạn chót) khi việc đầu chưa được bắt đầu. Đây là để chặn bấm nhầm hai lần; muốn giao thêm thì đổi tên việc.
 - **KPI giữa quý trông thấp** vì việc chưa đến hạn vẫn nằm trong mục tiêu. Con số tăng dần khi việc được duyệt. 100% tương ứng với mọi việc đúng hạn và đạt 4 sao; cao nhất là 120%.
 - **Cột `KPI_Quy`** luôn là KPI của quý hiện tại theo lịch và chỉ được cập nhật khi có việc được duyệt. Con số trong app mới là số tính trực tiếp.
 - **Khóa đăng nhập** được nhớ trong bộ nhớ của app, nên sẽ mất khi app khởi động lại.
