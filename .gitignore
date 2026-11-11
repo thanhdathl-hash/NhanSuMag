@@ -1,0 +1,13 @@
+# Bí mật: không bao giờ commit
+.streamlit/secrets.toml
+service_account*.json
+*-credentials.json
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# Thư mục làm việc của công cụ
+.superpowers/
