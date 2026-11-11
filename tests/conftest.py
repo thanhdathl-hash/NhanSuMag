@@ -52,3 +52,25 @@ def nv1():
 @pytest.fixture
 def nv2():
     return nguoi_dung(2)
+
+
+def viec_cho_duyet(**ghi_de):
+    """Việc trọng số 3, hạn 20/11, báo cáo 22/11 (trễ 2 ngày), đang chờ duyệt."""
+    return viec(**{c.COL_TRANG_THAI: c.TT_CHO_DUYET, c.COL_NGAY_HOAN_THANH: "2026-11-22",
+                   c.COL_LINK: "https://a.vn", **ghi_de})
+
+
+def viec_vi_du_spec(da_duyet=False):
+    """Ví dụ ở spec mục 7: NV01 có bốn việc quý 2026-Q4, trọng số 3, 5, 2, 4.
+
+    da_duyet=False: việc 1 còn chờ duyệt (duyệt 5 sao sẽ được 3,24 điểm, KPI 49,57%).
+    """
+    viec_1 = viec_cho_duyet()
+    if da_duyet:
+        viec_1 = viec_cho_duyet(**{c.COL_TRANG_THAI: c.TT_HOAN_THANH, c.COL_SAO: "5", c.COL_DIEM: "3.24"})
+    return [
+        viec_1,
+        viec(ID_Viec="V-00000002", Ten_Viec="Việc 2", Trong_So="5", Trang_Thai=c.TT_HOAN_THANH, Diem_KPI_Nhan="2.5"),
+        viec(ID_Viec="V-00000003", Ten_Viec="Việc 3", Trong_So="2", Trang_Thai=c.TT_HOAN_THANH, Diem_KPI_Nhan="1.2"),
+        viec(ID_Viec="V-00000004", Ten_Viec="Việc 4", Trong_So="4", Trang_Thai=c.TT_DANG_LAM),
+    ]

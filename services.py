@@ -12,6 +12,7 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 import config
+import db
 import kpi
 import notifier as tin
 
@@ -216,4 +217,88 @@ def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None =
     store.update_task(id_viec, thay_doi)
     if da_gui is None:
         da_gui = notifier.send_message(chat_ql, tin.msg_t3(task, ten_nv, link))    # T3
+    return Result({**task, **thay_doi}, da_gui)
+
+
+# --- Thao tác của quản lý ---
+
+def _loi_o(task: dict, cot: str, mong_doi: str) -> ServiceError:
+    return ServiceError(
+        f"Ô {cot} của việc {task[config.COL_ID_VIEC]} đang là \"{task[cot]}\", cần {mong_doi}. "
+        f"Hãy sửa trên Sheet rồi bấm Làm mới.")
+
+
+def _doc_ngay(task: dict, cot: str) -> date:
+    try:
+        return date.fromisoformat(task[cot].strip())
+    except ValueError:
+        raise _loi_o(task, cot, "ngày dạng YYYY-MM-DD") from None
+
+
+def _doc_trong_so(task: dict) -> int:
+    try:
+        trong_so = int(task[config.COL_TRONG_SO].strip())
+    except ValueError:
+        trong_so = None
+    if trong_so is None or not config.TRONG_SO_MIN <= trong_so <= config.TRONG_SO_MAX:
+        raise _loi_o(task, config.COL_TRONG_SO,
+                     f"số nguyên từ {config.TRONG_SO_MIN} đến {config.TRONG_SO_MAX}")
+    return trong_so
+
+
+def _chat_nguoi_nhan(store, task: dict) -> str:
+    """Chat ID của người nhận việc; chuỗi rỗng nếu không tra được (việc đã lưu thì không báo lỗi nữa)."""
+    try:
+        nguoi = _nhan_su(store.employees(), task[config.COL_NGUOI_NHAN])
+    except db.StoreError:
+        return ""
+    return nguoi[config.COL_CHAT_ID] if nguoi else ""
+
+
+def _ghi_kpi_quy(store, id_nv: str, today: date) -> bool:
+    """Ghi KPI quý hiện tại của một nhân viên vào bảng nhân sự (D1-A). False nếu ghi lỗi."""
+    try:
+        tasks = store.tasks()
+        cua_nv = tasks[(tasks[config.COL_NGUOI_NHAN] == id_nv)
+                       & (tasks[config.COL_QUY] == kpi.quarter_of(today))]
+        gia_tri = kpi.quarter_kpi(cua_nv)
+        store.update_employee(id_nv, {config.COL_KPI_QUY: "" if gia_tri is None else str(gia_tri)})
+        return True
+    except db.StoreError:
+        return False
+
+
+def approve_task(store, notifier, user: dict, id_viec: str, *, stars: int, today: date) -> Result:
+    task = _doc_viec(store, id_viec)
+    _chi_quan_ly(user)
+    _can_trang_thai(task, [config.TT_CHO_DUYET])
+    if isinstance(stars, bool) or not isinstance(stars, int) or stars not in config.H2_THEO_SAO:
+        raise InvalidInput("Bắt buộc chấm từ 1 đến 5 sao trước khi duyệt.")
+
+    trong_so = _doc_trong_so(task)
+    tre = kpi.days_late(_doc_ngay(task, config.COL_HAN_CHOT), _doc_ngay(task, config.COL_NGAY_HOAN_THANH))
+    diem = kpi.task_score(trong_so, tre, stars)
+
+    thay_doi = {
+        config.COL_TRANG_THAI: config.TT_HOAN_THANH,
+        config.COL_SAO: str(stars),
+        config.COL_DIEM: str(diem),
+    }
+    store.update_task(id_viec, thay_doi)
+    kpi_saved = _ghi_kpi_quy(store, task[config.COL_NGUOI_NHAN], today)
+    da_gui = notifier.send_message(_chat_nguoi_nhan(store, task), tin.msg_t4_duyet(task, stars, diem))   # T4
+    return Result({**task, **thay_doi}, da_gui, kpi_saved)
+
+
+def return_task(store, notifier, user: dict, id_viec: str, *, ly_do: str) -> Result:
+    task = _doc_viec(store, id_viec)
+    _chi_quan_ly(user)
+    _can_trang_thai(task, [config.TT_CHO_DUYET])
+    ly_do = (ly_do or "").strip()
+    if not ly_do:
+        raise InvalidInput("Bắt buộc ghi lý do khi trả lại.")
+
+    thay_doi = {config.COL_TRANG_THAI: config.TT_LAM_LAI, config.COL_GHI_CHU_QL: ly_do}
+    store.update_task(id_viec, thay_doi)
+    da_gui = notifier.send_message(_chat_nguoi_nhan(store, task), tin.msg_t4_tra_lai(task, ly_do))       # T4
     return Result({**task, **thay_doi}, da_gui)
