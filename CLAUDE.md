@@ -10,16 +10,18 @@ Chưa có code. Thiết kế đã chốt trong spec:
 
 Spec là nguồn sự thật. Nếu yêu cầu mới mâu thuẫn với spec, sửa spec trước rồi mới sửa code.
 
-Bước tiếp theo: lập kế hoạch triển khai từ spec, để chủ dự án duyệt, rồi viết code theo TDD.
+Kế hoạch triển khai (13 task, TDD) đang chờ chủ dự án duyệt:
 
-## Việc phải hỏi trước khi code
+`docs/superpowers/plans/2026-11-11-he-thong-giao-viec-kpi.md`
 
-Mục 2 của spec có hai quyết định đang dùng phương án đề xuất nhưng chủ dự án chưa xác nhận riêng:
+Bước tiếp theo: chủ dự án duyệt kế hoạch, rồi viết code theo từng task.
 
-- D1: mục tiêu KPI quý tính theo tổng trọng số việc được giao (A) hay số cố định ở cột `KPI_Quy` (B).
-- D2: đăng nhập có mã PIN hay chỉ ID/SĐT.
+## Quyết định đã xác nhận
 
-Hỏi lại một lần, kèm hệ quả của từng phương án như spec đã ghi, trước khi viết `kpi.quarter_target` và `auth.py`.
+Chủ dự án xác nhận ngày 2026-11-11, không cần hỏi lại:
+
+- D1 = A: mục tiêu KPI quý là tổng trọng số việc được giao có hạn trong quý. App ghi KPI quý hiện tại vào cột `KPI_Quy` sau mỗi lần duyệt.
+- D2: đăng nhập bằng ID hoặc SĐT cộng mã PIN.
 
 ## Stack
 

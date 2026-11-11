@@ -24,6 +24,8 @@ Ngoài phạm vi của bản đầu:
 
 ## 2. Hai quyết định chưa được xác nhận riêng
 
+**Cập nhật 2026-11-11: chủ dự án đã xác nhận cả hai theo phương án đang dùng. D1 = A (tổng trọng số việc được giao). D2 = ID hoặc SĐT cộng mã PIN. Không cần hỏi lại.** Phần dưới giữ nguyên để lưu lý do và hệ quả.
+
 Chủ dự án đã đồng ý chuyển sang Claude Code với các phương án đề xuất, nhưng chưa trả lời riêng hai câu dưới đây. Hãy hỏi lại một lần trước khi viết `kpi.quarter_target` và `auth`.
 
 | Mã | Câu hỏi | Đang dùng | Phương án còn lại |
