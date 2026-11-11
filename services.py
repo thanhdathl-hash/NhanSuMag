@@ -3,6 +3,7 @@
 Nguyên tắc: ghi Sheet trước, gửi Telegram sau. Telegram lỗi không hủy thao tác
 (trừ ảnh chứng minh, vì Telegram là nơi duy nhất giữ ảnh).
 """
+import re
 import secrets
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -132,3 +133,87 @@ def create_task(store, notifier, user: dict, *, ten_viec: str, mo_ta: str, nguoi
     store.append_task(task)
     da_gui = notifier.send_message(nguoi[config.COL_CHAT_ID], tin.msg_t1(task))    # T1
     return Result(task, da_gui)
+
+
+# --- Thao tác của nhân viên ---
+
+_PNG, _JPG = b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff"
+_LINK = re.compile(r"https?://\S+")
+
+
+def _doc_viec(store, id_viec: str) -> dict:
+    """Đọc lại dòng việc mới nhất từ Sheet, tránh bấm hai lần hoặc thao tác trên dữ liệu cũ."""
+    task = store.get_task(id_viec)
+    if task is None:
+        raise ServiceError(f"Không tìm thấy việc {id_viec}. Có thể việc đã bị xóa trên Sheet, hãy bấm Làm mới.")
+    return task
+
+
+def _chi_nguoi_nhan(user: dict, task: dict) -> None:
+    if not _la_nhan_vien(user) or task[config.COL_NGUOI_NHAN] != user[config.COL_ID_NV]:
+        raise PermissionDenied("Chỉ nhân viên được giao việc này mới được thực hiện thao tác.")
+
+
+def _can_trang_thai(task: dict, cho_phep: list[str]) -> None:
+    hien_tai = task[config.COL_TRANG_THAI]
+    if hien_tai not in cho_phep:
+        raise InvalidState(
+            f"Việc đang ở trạng thái \"{hien_tai}\" nên không thực hiện được thao tác này. Hãy bấm Làm mới.")
+
+
+def start_task(store, user: dict, id_viec: str) -> Result:
+    task = _doc_viec(store, id_viec)
+    _chi_nguoi_nhan(user, task)
+    _can_trang_thai(task, [config.TT_MOI_GIAO, config.TT_LAM_LAI])
+    thay_doi = {config.COL_TRANG_THAI: config.TT_DANG_LAM}
+    store.update_task(id_viec, thay_doi)
+    return Result({**task, **thay_doi}, True)
+
+
+def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None = None,
+                photo: bytes | None = None, photo_name: str | None = None, today: date) -> Result:
+    task = _doc_viec(store, id_viec)
+    _chi_nguoi_nhan(user, task)
+    _can_trang_thai(task, [config.TT_DANG_LAM, config.TT_LAM_LAI])
+
+    link = (link or "").strip()
+    co_anh = photo is not None
+    if link and co_anh:
+        raise InvalidInput("Chỉ chọn một cách chứng minh: dán link hoặc tải ảnh.")
+    if not link and not co_anh:
+        raise InvalidInput("Bắt buộc có chứng minh: dán link hoặc tải ảnh.")
+    if link and not _LINK.fullmatch(link):
+        raise InvalidInput("Link phải bắt đầu bằng http:// hoặc https:// và không có khoảng trắng.")
+    if co_anh:
+        if not (photo.startswith(_PNG) or photo.startswith(_JPG)):
+            raise InvalidInput("Ảnh phải là file JPG hoặc PNG.")
+        if len(photo) > config.ANH_MAX_BYTES:
+            raise InvalidInput(f"Ảnh không được lớn hơn {config.ANH_MAX_BYTES // (1024 * 1024)} MB.")
+
+    try:
+        chat_ql = find_manager(store.employees())[config.COL_CHAT_ID]
+    except ServiceError:
+        chat_ql = ""
+    ten_nv = user.get(config.COL_TEN, user[config.COL_ID_NV])
+
+    if co_anh:
+        # Telegram là nơi duy nhất giữ ảnh: gửi được rồi mới chuyển trạng thái
+        file_id = notifier.send_photo(chat_ql, photo, photo_name or "chung-minh.jpg",
+                                      tin.msg_t3(task, ten_nv, None))
+        if not file_id:
+            raise ServiceError(
+                "Chưa gửi được ảnh qua Telegram (quản lý chưa có Telegram hoặc đường truyền lỗi). "
+                "Việc chưa được báo cáo. Hãy thử lại hoặc dán link thay thế.")
+        chung_minh, da_gui = config.TG_PREFIX + file_id, True
+    else:
+        chung_minh, da_gui = link, None
+
+    thay_doi = {
+        config.COL_TRANG_THAI: config.TT_CHO_DUYET,
+        config.COL_LINK: chung_minh,
+        config.COL_NGAY_HOAN_THANH: today.isoformat(),
+    }
+    store.update_task(id_viec, thay_doi)
+    if da_gui is None:
+        da_gui = notifier.send_message(chat_ql, tin.msg_t3(task, ten_nv, link))    # T3
+    return Result({**task, **thay_doi}, da_gui)
