@@ -4,17 +4,14 @@ App nội bộ cho 1 quản lý và 5 nhân viên: giao việc, theo dõi tiến
 
 ## Trạng thái hiện tại
 
-Chưa có code. Thiết kế đã chốt trong spec:
+Bản đầu đã viết xong theo kế hoạch 13 task, có test tự động cho mọi module (`pytest`).
 
-`docs/superpowers/specs/2026-11-11-he-thong-giao-viec-kpi-design.md`
+- Spec: `docs/superpowers/specs/2026-11-11-he-thong-giao-viec-kpi-design.md`
+- Kế hoạch đã thực hiện: `docs/superpowers/plans/2026-11-11-he-thong-giao-viec-kpi.md`
 
 Spec là nguồn sự thật. Nếu yêu cầu mới mâu thuẫn với spec, sửa spec trước rồi mới sửa code.
 
-Kế hoạch triển khai (13 task, TDD) đang chờ chủ dự án duyệt:
-
-`docs/superpowers/plans/2026-11-11-he-thong-giao-viec-kpi.md`
-
-Bước tiếp theo: chủ dự án duyệt kế hoạch, rồi viết code theo từng task.
+Chưa làm: kiểm tra cuối với Sheet và bot thật (README mục 7), do chủ dự án thực hiện. Chưa tra lại được bản Python mà Streamlit Cloud hỗ trợ và giới hạn ảnh hiện hành của Telegram Bot API.
 
 ## Quyết định đã xác nhận
 
@@ -43,15 +40,16 @@ services.py     Thao tác nghiệp vụ, kiểm tra quyền và trạng thái
 kpi.py          Công thức KPI
 notifier.py     Telegram
 apps_script/    nhac_viec.gs
-tests/
+tests/          fakes.py là gspread và Telegram giả dùng cho mọi test
 ```
 
 ## Lệnh
 
 ```bash
-pip install -r requirements.txt
-streamlit run app.py
-pytest
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/streamlit run app.py
+.venv/bin/pytest
 ```
 
 ## Quy ước
@@ -67,7 +65,7 @@ pytest
 
 ## Bí mật
 
-Không commit `.streamlit/secrets.toml`, khóa service account, token bot hay ID file Sheet. Repo chỉ chứa `.streamlit/secrets.toml.example` với giá trị giả. Tạo `.gitignore` chặn `secrets.toml` trước commit code đầu tiên.
+Không commit `.streamlit/secrets.toml`, khóa service account, token bot hay ID file Sheet. Repo chỉ chứa `.streamlit/secrets.toml.example` với giá trị giả. `.gitignore` đã chặn `secrets.toml`.
 
 ## Ngoài phạm vi
 
