@@ -55,6 +55,8 @@ SO_LAN_SAI_TOI_DA, KHOA_PHUT = 5, 15
 # --- Telegram ---
 TELEGRAM_TIMEOUT = 10
 TG_PREFIX = "tg:"
+# Bot API (theo tài liệu đã biết, chưa tra lại được từ môi trường viết code): sendPhoto tối đa 10 MB,
+# getFile tải về tối đa 20 MB. Kiểm tra lại trên core.telegram.org/bots/api khi triển khai.
 ANH_MAX_BYTES = 5 * 1024 * 1024
 TG_CAPTION_MAX, TG_TEXT_MAX = 1024, 4096
 
