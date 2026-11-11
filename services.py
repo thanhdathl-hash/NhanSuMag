@@ -350,3 +350,7 @@ def quarters(tasks: pd.DataFrame, today: date) -> list[str]:
     """Các quý có việc, cộng quý hiện tại, mới nhất trước."""
     co = {q for q in tasks[config.COL_QUY] if _QUY.fullmatch(q)}
     return sorted(co | {kpi.quarter_of(today)}, reverse=True)
+
+
+def current_quarter(today: date) -> str:
+    return kpi.quarter_of(today)

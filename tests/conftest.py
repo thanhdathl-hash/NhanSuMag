@@ -74,3 +74,58 @@ def viec_vi_du_spec(da_duyet=False):
         viec(ID_Viec="V-00000003", Ten_Viec="Việc 3", Trong_So="2", Trang_Thai=c.TT_HOAN_THANH, Diem_KPI_Nhan="1.2"),
         viec(ID_Viec="V-00000004", Ten_Viec="Việc 4", Trong_So="4", Trang_Thai=c.TT_DANG_LAM),
     ]
+
+
+# --- Test giao diện bằng streamlit.testing ---
+
+HOM_NAY = __import__("datetime").date(2026, 11, 11)
+APP = str(__import__("pathlib").Path(__file__).resolve().parent.parent / "app.py")
+
+
+@pytest.fixture
+def app_env(monkeypatch):
+    """Trả về hàm dựng môi trường: app_env(tasks=..., templates=..., nhan_su=...) -> (store, notifier).
+
+    App chạy trên SheetStore với gspread giả và FakeNotifier; "hôm nay" cố định là 2026-11-11.
+    """
+    import streamlit as st
+
+    import db
+    import notifier as notifier_module
+    import services
+
+    st.cache_resource.clear()
+    st.cache_data.clear()
+
+    def dung(tasks=(), templates=(), nhan_su=NHAN_SU, store=None):
+        store = store or make_store(nhan_su, templates=templates, tasks=tasks)
+        gia = FakeNotifier()
+        monkeypatch.setattr(db, "open_store", lambda secrets: store)
+        monkeypatch.setattr(notifier_module, "Notifier", lambda token: gia)
+        monkeypatch.setattr(services, "hom_nay", lambda: HOM_NAY)
+        return store, gia
+
+    yield dung
+    st.cache_resource.clear()
+    st.cache_data.clear()
+
+
+def mo_app():
+    from streamlit.testing.v1 import AppTest
+    at = AppTest.from_file(APP, default_timeout=10)
+    at.secrets["telegram_bot_token"] = "token-gia"
+    at.secrets["sheet_id"] = "sheet-gia"
+    return at.run()
+
+
+def dang_nhap(at, ident, pin):
+    at.text_input(key="login_id").set_value(ident)
+    at.text_input(key="login_pin").set_value(pin)
+    at.button(key="login_submit").click().run()
+    return at
+
+
+def chu_tren_trang(at):
+    """Gom mọi chữ hiển thị trên trang để dò nội dung."""
+    nhom = ["markdown", "caption", "error", "warning", "success", "info", "subheader", "header", "title", "code"]
+    return " | ".join(str(e.value) for n in nhom for e in getattr(at, n))

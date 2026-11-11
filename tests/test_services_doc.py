@@ -66,3 +66,7 @@ def test_quarters():
     assert services.quarters(s.tasks(), date(2027, 1, 2)) == ["2027-Q1", "2026-Q4", "2026-Q3"]
     assert services.quarters(s.tasks(), date(2026, 11, 2)) == ["2026-Q4", "2026-Q3"]
     assert services.quarters(make_store(NHAN_SU).tasks(), date(2026, 11, 2)) == ["2026-Q4"]
+
+
+def test_current_quarter():
+    assert services.current_quarter(date(2026, 11, 11)) == "2026-Q4"
