@@ -6,6 +6,20 @@ Thiết kế chi tiết: `docs/superpowers/specs/2026-11-11-he-thong-giao-viec-k
 
 Tài liệu này hướng dẫn chủ dự án cài đặt từ đầu. Làm theo đúng thứ tự.
 
+## Xem thử nhanh, chưa cần cài đặt gì
+
+Muốn xem app trông thế nào trước khi tạo Sheet, service account và bot:
+
+```bash
+python3.12 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/streamlit run demo.py
+```
+
+App mở với dữ liệu mẫu. Tài khoản: quản lý `QL01` PIN `1111`; nhân viên `NV01` đến `NV05` PIN `1234`. Mở hai tab trình duyệt để đăng nhập hai vai cùng lúc. Tin Telegram không được gửi đi mà hiện ở thanh bên trái.
+
+Dữ liệu ở chế độ này nằm trong bộ nhớ và mất khi tắt app. Nó chỉ để xem; không thay được bước kiểm tra với Sheet và bot thật ở mục 7. Khi triển khai, file chính vẫn là `app.py`, không phải `demo.py`.
+
 ## 1. Tạo file Google Sheet
 
 Tạo một file Google Sheet mới với ba bảng (tab). Tên bảng và tên cột phải đúng từng ký tự; thứ tự cột không quan trọng.
@@ -117,6 +131,7 @@ Phần này chưa được kiểm thử tự động. Làm lần lượt và đ�
 
 ```
 app.py          Giao diện Streamlit
+demo.py         Chạy thử với dữ liệu mẫu trong bộ nhớ (không dùng để triển khai)
 config.py       Tên bảng, tên cột, trạng thái, hệ số KPI, múi giờ
 db.py           Đọc và ghi Google Sheets
 auth.py         Xác thực

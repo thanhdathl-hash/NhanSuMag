@@ -63,6 +63,15 @@ class Notifier:
             return None
 
 
+def from_secrets(secrets) -> Notifier:
+    """Tạo Notifier từ secrets của app. Thiếu token thì app vẫn chạy, chỉ là không gửi được tin."""
+    try:
+        token = secrets["telegram_bot_token"]
+    except Exception:   # thiếu khóa hoặc chưa có file secrets
+        token = ""
+    return Notifier(token or "")
+
+
 # --- Nội dung tin: văn bản thuần, không parse_mode ---
 
 def msg_t1(task: dict) -> str:

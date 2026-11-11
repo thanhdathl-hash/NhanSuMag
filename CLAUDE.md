@@ -33,6 +33,7 @@ Ngày 2026-11-11 các bản sau cài được cùng nhau trên Python 3.13: stre
 
 ```
 app.py          Giao diện Streamlit
+demo.py         Chạy thử với dữ liệu mẫu trong bộ nhớ; dùng tests/fakes.py. Không triển khai file này
 config.py       Tên bảng, tên cột, trạng thái, hệ số KPI, múi giờ
 db.py           Đọc và ghi Google Sheets
 auth.py         Xác thực
@@ -49,6 +50,7 @@ tests/          fakes.py là gspread và Telegram giả dùng cho mọi test
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/streamlit run app.py
+.venv/bin/streamlit run demo.py    # xem thử, không cần secrets
 .venv/bin/pytest
 ```
 

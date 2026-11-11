@@ -27,7 +27,7 @@ def get_store():
 
 @st.cache_resource
 def get_notifier():
-    return notifier.Notifier(st.secrets["telegram_bot_token"])
+    return notifier.from_secrets(st.secrets)
 
 
 @st.cache_resource
@@ -277,15 +277,15 @@ def tab_giao_viec(nhan_su) -> None:
                  format_func=lambda i: "(Gõ tay)" if i == GO_TAY else ten_mau[i])
     st.text_input("Tên việc", key="gv_ten")
     st.text_area("Mô tả", key="gv_mo_ta")
-    st.session_state.setdefault("gv_trong_so", TRONG_SO_MAC_DINH)
+    # Giá trị mặc định truyền qua `value` để trình duyệt nhận ngay từ lần vẽ đầu;
+    # nếu chỉ đặt qua session_state, người bấm nhanh có thể gửi đi giá trị nhỏ nhất (1).
     st.number_input("Trọng số (1 đến 5)", min_value=config.TRONG_SO_MIN, max_value=config.TRONG_SO_MAX,
-                    step=1, key="gv_trong_so")
+                    value=TRONG_SO_MAC_DINH, step=1, key="gv_trong_so")
     nhan_vien = nhan_su[nhan_su[config.COL_ROLE] == config.ROLE_NHAN_VIEN]
     ten = ten_theo_id(nhan_vien)
     st.selectbox("Người nhận", list(ten), index=None, placeholder="Chọn nhân viên", key="gv_nguoi_nhan",
                  format_func=lambda i: f"{ten[i]} ({i})")
-    st.session_state.setdefault("gv_han_chot", services.hom_nay())
-    st.date_input("Hạn chót", format="DD/MM/YYYY", key="gv_han_chot")
+    st.date_input("Hạn chót", value=services.hom_nay(), format="DD/MM/YYYY", key="gv_han_chot")
     st.button("Giao việc", key="gv_submit", type="primary", on_click=cb_giao_viec)
 
 

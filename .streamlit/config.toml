@@ -8,3 +8,7 @@ toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
+
+[global]
+# Ô trọng số và hạn chót có giá trị mặc định, đồng thời được điền lại khi chọn mẫu. Đây là chủ ý.
+disableWidgetStateDuplicationWarning = true

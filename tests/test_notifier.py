@@ -140,3 +140,13 @@ def test_noi_dung_tin():
 
 def test_module_khong_log_token():
     assert not hasattr(notifier, "logging")
+
+
+def test_from_secrets_co_token(gia_post):
+    assert notifier.from_secrets({"telegram_bot_token": TOKEN}).send_message("1", "a") is True
+    assert TOKEN in gia_post.calls[0].url
+
+
+@pytest.mark.parametrize("secrets", [{}, {"telegram_bot_token": ""}, {"telegram_bot_token": None}])
+def test_from_secrets_thieu_token_thi_app_van_chay_nhung_khong_gui(gia_post, secrets):
+    assert notifier.from_secrets(secrets).send_message("1", "a") is False and gia_post.calls == []
