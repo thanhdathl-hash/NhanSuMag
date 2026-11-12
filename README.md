@@ -53,13 +53,45 @@ Tạo một file Google Sheet mới với bốn bảng (tab). Tên bảng và t�
 
 Chỉ chia sẻ file Sheet cho quản lý và service account. **Không chia sẻ cho nhân viên**: mã PIN nằm trong Sheet dạng chữ thường, ai xem được Sheet là xem được PIN của mọi người.
 
-## 3. Tạo bot Telegram
+## 3. Bot Telegram
 
-1. Trong Telegram, nhắn `@BotFather`, gõ `/newbot`, làm theo hướng dẫn để nhận token.
-2. Từng người (quản lý và 5 nhân viên) mở bot vừa tạo và bấm **Start**. Bot không thể nhắn cho người chưa bấm Start.
-3. Lấy chat ID của từng người: người đó nhắn `@userinfobot` và chép số ID nhận được vào cột `Telegram_ChatID`.
+Bot dùng để báo tin: nhân viên nhận tin khi được giao việc và khi việc được duyệt hoặc trả lại; quản lý nhận tin khi có việc chờ duyệt. Chưa có bot thì app vẫn chạy, chỉ không gửi tin và không báo cáo kèm ảnh được.
 
-Ảnh chứng minh (không bắt buộc) được gửi vào cuộc trò chuyện giữa quản lý và bot, nên muốn báo cáo kèm ảnh thì quản lý phải có `Telegram_ChatID`.
+**Bước 1. Tạo bot (quản lý làm, một lần).** Trong Telegram, tìm `@BotFather` (có dấu tích xanh), gõ `/newbot`. Đặt tên hiển thị (ví dụ "Giao việc"), rồi đặt username kết thúc bằng `bot` (ví dụ `giaoviec_congty_bot`). BotFather trả về **token** dạng `123456789:AAH...`. Token là mật khẩu của bot: không gửi cho ai, không dán vào nhóm chat.
+
+**Bước 2. Mọi người nhắn cho bot (mỗi người một lần).** Quản lý và từng nhân viên tìm username của bot, bấm **Start**, rồi gửi một tin bất kỳ, ví dụ "hi". Bot không nhắn được cho người chưa bấm Start.
+
+**Bước 3. Lấy chat ID của từng người.** Ngay sau bước 2, mở trình duyệt, vào địa chỉ sau (thay `TOKEN` bằng token thật, giữ nguyên chữ `bot` phía trước):
+
+```
+https://api.telegram.org/botTOKEN/getUpdates
+```
+
+Trang hiện các tin mọi người vừa gửi. Với mỗi tin, tìm đoạn:
+
+```
+"chat":{"id":7012345678,"first_name":"Thảo","last_name":"Nguyễn", ...
+```
+
+Con số sau `"chat":{"id":` là chat ID của người đó (ở đây là `7012345678`). Nhận người bằng `first_name` và `last_name` (tên Telegram của họ). Bật "Pretty-print" ở đầu trang nếu trình duyệt có, cho dễ đọc.
+
+- Trang chỉ hiện `{"ok":true,"result":[]}`: chưa ai nhắn, hoặc tin đã quá 24 giờ. Nhờ mọi người gửi lại một tin rồi tải lại trang.
+- Báo `Unauthorized` hoặc `Not Found`: token dán sai hoặc thiếu chữ `bot` ngay trước token.
+- Không dùng số ở mục `"from":{"id":...` của nhóm chat, hay số âm: đó không phải chat riêng với bot.
+
+**Bước 4. Dán chat ID vào Sheet.** Mở bảng `Danh_Sach_Nhan_Su`, dán chat ID của từng người vào cột `Telegram_ChatID` **đúng dòng của người đó**, kể cả dòng quản lý. Chỉ dán con số, không dấu ngoặc kép, không khoảng trắng.
+
+**Bước 5. Đưa token vào app.** Trên máy chạy app, chạy lại script tạo secrets (script hỏi ghi đè thì gõ `c`, hỏi token thì dán token, chữ sẽ không hiện ra khi dán):
+
+```powershell
+.\.venv\Scripts\python scripts\tao_secrets.py "đường\dẫn\file-khoa.json"
+```
+
+Khi đã triển khai lên Streamlit Cloud: vào app > Settings > Secrets, sửa dòng `telegram_bot_token = "..."` rồi bấm Save.
+
+**Bước 6. Thử.** Tắt app (`Ctrl + C`) và chạy lại. Trong app bấm "Làm mới dữ liệu", rồi giao một việc thử cho một nhân viên: người đó phải nhận được tin "Việc mới" từ bot. Nếu app báo "Đã lưu nhưng chưa gửi được thông báo Telegram": kiểm tra chat ID của người đó, và người đó đã bấm Start chưa.
+
+Ảnh chứng minh (không bắt buộc) được gửi vào cuộc trò chuyện giữa quản lý và bot, nên muốn báo cáo kèm ảnh thì dòng quản lý phải có `Telegram_ChatID`.
 
 ## 4. Chạy trên máy cá nhân
 
