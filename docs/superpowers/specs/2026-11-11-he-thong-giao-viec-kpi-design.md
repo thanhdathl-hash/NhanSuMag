@@ -291,7 +291,7 @@ Dùng lịch riêng thay vì lịch chính vì quyền "Thay đổi sự kiện"
 Cách chạy:
 
 - Module `gcal.py` gọi Google Calendar API bằng chính service account của app, phạm vi `calendar.events`. Không thêm thư viện: dùng `google-auth` đã có. Mỗi lần gọi có giới hạn 10 giây và không ném lỗi ra ngoài, giống `notifier.py`.
-- Khi quản lý tạo việc: ghi Sheet, gửi Telegram, rồi tạo một sự kiện cả ngày vào ngày `Han_Chot` trên lịch của người nhận. Người chưa có `Lich_Google` thì bỏ qua. Đẩy lỗi không hủy thao tác; giao diện báo "đã lưu nhưng chưa đẩy được lên Google Calendar".
+- Khi quản lý tạo việc: ghi Sheet, gửi Telegram, rồi tạo một sự kiện cả ngày vào ngày `Han_Chot` trên lịch của người nhận. Người chưa có `Lich_Google` thì bỏ qua. Đẩy lỗi không hủy thao tác; giao diện báo "đã lưu nhưng chưa đồng bộ được với Google Calendar".
 - Mã sự kiện được suy ra từ `ID_Viec` (và từ `ID_Lich` với mục cá nhân), nên đẩy lại không tạo sự kiện trùng và không cần cột lưu mã sự kiện.
 - Giờ nhắc do mỗi người tự đặt một lần trong phần cài đặt thông báo của lịch "Công việc", vì Google lưu cài đặt nhắc theo từng người xem lịch. App không đặt được giờ nhắc thay họ.
 - Sửa `Han_Chot` trên Sheet sau khi giao thì sự kiện cũ không tự cập nhật. Duyệt hay trả lại không đổi sự kiện.

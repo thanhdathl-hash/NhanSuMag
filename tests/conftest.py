@@ -1,15 +1,17 @@
 import pytest
 
 import config as c
-from tests.fakes import FakeNotifier, make_store
+from tests.fakes import FakeCalendar, FakeNotifier, make_store
 
 NHAN_SU = [
     {c.COL_ID_NV: "QL01", c.COL_TEN: "Trần Quản Lý", c.COL_SDT: "0900000001", c.COL_MA_PIN: "1111",
-     c.COL_CHAT_ID: "100", c.COL_ROLE: c.ROLE_QUAN_LY, c.COL_KPI_QUY: ""},
+     c.COL_CHAT_ID: "100", c.COL_ROLE: c.ROLE_QUAN_LY, c.COL_KPI_QUY: "",
+     c.COL_LICH_GOOGLE: "ql01@group.calendar.google.com"},
     {c.COL_ID_NV: "NV01", c.COL_TEN: "Nguyễn An", c.COL_SDT: "0912345678", c.COL_MA_PIN: "1234",
-     c.COL_CHAT_ID: "201", c.COL_ROLE: c.ROLE_NHAN_VIEN, c.COL_KPI_QUY: ""},
+     c.COL_CHAT_ID: "201", c.COL_ROLE: c.ROLE_NHAN_VIEN, c.COL_KPI_QUY: "",
+     c.COL_LICH_GOOGLE: "nv01@group.calendar.google.com"},
     {c.COL_ID_NV: "NV02", c.COL_TEN: "Lê Bình", c.COL_SDT: "0987654321", c.COL_MA_PIN: "5678",
-     c.COL_CHAT_ID: "", c.COL_ROLE: c.ROLE_NHAN_VIEN, c.COL_KPI_QUY: ""},
+     c.COL_CHAT_ID: "", c.COL_ROLE: c.ROLE_NHAN_VIEN, c.COL_KPI_QUY: "", c.COL_LICH_GOOGLE: ""},
 ]
 
 
@@ -21,6 +23,15 @@ def viec(**ghi_de):
         c.COL_TRONG_SO: "3", c.COL_NGAY_GIAO: "2026-11-01", c.COL_HAN_CHOT: "2026-11-20",
         c.COL_TRANG_THAI: c.TT_MOI_GIAO, c.COL_THANG: "2026-11", c.COL_QUY: "2026-Q4",
     })
+    d.update(ghi_de)
+    return d
+
+
+def lich(**ghi_de):
+    """Một mục lịch trình cá nhân của NV01. Ghi đè bằng tên cột."""
+    d = {k: "" for k in c.LICH_COLS}
+    d.update({c.COL_ID_LICH: "L-00000001", c.COL_ID_NV: "NV01", c.COL_NOI_DUNG: "Họp giao ban",
+              c.COL_NGAY: "2026-11-16", c.COL_LAP: c.LAP_KHONG})
     d.update(ghi_de)
     return d
 
@@ -84,22 +95,27 @@ APP = str(__import__("pathlib").Path(__file__).resolve().parent.parent / "app.py
 
 @pytest.fixture
 def app_env(monkeypatch):
-    """Trả về hàm dựng môi trường: app_env(tasks=..., templates=..., nhan_su=...) -> (store, notifier).
+    """Trả về hàm dựng môi trường: app_env(tasks=..., templates=..., nhan_su=..., personal=...) -> (store, notifier).
+
+    Lịch Google giả của lần dựng gần nhất nằm ở app_env.calendar.
 
     App chạy trên SheetStore với gspread giả và FakeNotifier; "hôm nay" cố định là 2026-11-11.
     """
     import streamlit as st
 
     import db
+    import gcal
     import notifier as notifier_module
     import services
 
     st.cache_resource.clear()
     st.cache_data.clear()
 
-    def dung(tasks=(), templates=(), nhan_su=NHAN_SU, store=None):
-        store = store or make_store(nhan_su, templates=templates, tasks=tasks)
+    def dung(tasks=(), templates=(), nhan_su=NHAN_SU, store=None, personal=()):
+        store = store or make_store(nhan_su, templates=templates, tasks=tasks, personal=personal)
         gia = FakeNotifier()
+        dung.calendar = FakeCalendar()
+        monkeypatch.setattr(gcal, "from_secrets", lambda secrets: dung.calendar)
         monkeypatch.setattr(db, "open_store", lambda secrets: store)
         monkeypatch.setattr(notifier_module, "Notifier", lambda token: gia)
         monkeypatch.setattr(services, "hom_nay", lambda: HOM_NAY)

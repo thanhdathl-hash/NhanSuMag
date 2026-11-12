@@ -4,8 +4,9 @@ import re
 
 import config
 
-MODULES = ["kpi.py", "db.py", "auth.py", "notifier.py", "services.py", "app.py", "ui.py", "demo.py"]
-CAM = config.TRANG_THAI + config.VIEC_COLS + config.NHAN_SU_COLS + config.MAU_COLS + list(config.SHEET_COLS)
+MODULES = ["kpi.py", "db.py", "auth.py", "notifier.py", "services.py", "app.py", "ui.py", "demo.py", "gcal.py"]
+CAM = (config.TRANG_THAI + config.VIEC_COLS + config.NHAN_SU_COLS + config.MAU_COLS + config.LICH_COLS
+       + config.LAP_KIEU + list(config.SHEET_COLS))
 
 
 def test_khong_viet_ten_cot_trang_thai_ngoai_config():

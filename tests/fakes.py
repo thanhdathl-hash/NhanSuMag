@@ -34,6 +34,10 @@ class FakeWorksheet:
         assert value_input_option == "RAW"
         self.rows.append(list(values))
 
+    def delete_rows(self, start_index, end_index=None):
+        self._check()
+        del self.rows[start_index - 1:(end_index or start_index)]
+
     def batch_update(self, data, value_input_option=None):
         self._check()
         assert value_input_option == "RAW"
@@ -59,12 +63,13 @@ def _bang(cols, dicts):
     return FakeWorksheet([list(cols)] + [[d.get(k, "") for k in cols] for d in dicts])
 
 
-def make_store(employees, templates=(), tasks=()):
+def make_store(employees, templates=(), tasks=(), personal=()):
     """SheetStore thật chạy trên gspread giả."""
     return db.SheetStore(FakeSpreadsheet({
         c.SHEET_NHAN_SU: _bang(c.NHAN_SU_COLS, employees),
         c.SHEET_MAU: _bang(c.MAU_COLS, templates),
         c.SHEET_VIEC: _bang(c.VIEC_COLS, tasks),
+        c.SHEET_LICH: _bang(c.LICH_COLS, personal),
     }))
 
 
@@ -90,3 +95,26 @@ class FakeNotifier:
 
     def fetch_photo(self, file_id):
         return self.photo_bytes
+
+
+class FakeCalendar:
+    """Google Calendar giả: ghi lại sự kiện được tạo và bị xóa. Đặt ok=False để giả lập Google lỗi."""
+
+    def __init__(self):
+        self.ok = True
+        self.events = []     # dict: calendar_id, ev_id, summary, description, ngay, gio_bat_dau, gio_ket_thuc, lap, lap_den
+        self.deleted = []    # (calendar_id, ev_id)
+
+    def add_event(self, calendar_id, ev_id, summary, description, ngay,
+                  gio_bat_dau=None, gio_ket_thuc=None, lap=None, lap_den=None):
+        if not calendar_id or not self.ok:
+            return False
+        self.events.append(dict(calendar_id=calendar_id, ev_id=ev_id, summary=summary, description=description,
+                                ngay=ngay, gio_bat_dau=gio_bat_dau, gio_ket_thuc=gio_ket_thuc, lap=lap, lap_den=lap_den))
+        return True
+
+    def delete_event(self, calendar_id, ev_id):
+        if not calendar_id or not self.ok:
+            return False
+        self.deleted.append((calendar_id, ev_id))
+        return True

@@ -18,6 +18,7 @@ MAU_NHOM = {
     config.NHOM_HOAN_THANH: ("#12b76a", "#e6f8ef", "✔"),
 }
 NEN_KHOI = "#ffffff"   # nền của các khối trắng trên trang
+MAU_CA_NHAN = ("#7a5af8", "#f1edff")   # lịch trình cá nhân: (màu chính, màu nền nhạt)
 THU = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"]
 
 
@@ -51,9 +52,13 @@ CSS = """<style>
 [class*="st-key-lichngoai_"]{background:#fafbfd}[class*="st-key-lichngoai_"] .gv-so-ngay{color:#c0c6d4}
 [class*="st-key-lichnay_"]{border-color:#5b5fe9}
 [class*="st-key-lichnay_"] .gv-so-ngay{background:#5b5fe9;color:#fff;border-radius:50%}
-[class*="st-key-lv_"] button,[class*="st-key-lvthem_"] button{min-height:0;padding:2px 6px;border:none;border-radius:4px;justify-content:flex-start;text-align:left;color:#1f2937}
-[class*="st-key-lv_"] button p,[class*="st-key-lvthem_"] button p{font-size:12.5px;line-height:1.3;text-align:left;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+[class*="st-key-lv_"] button,[class*="st-key-lvthem_"] button,[class*="st-key-lcmuc_"] button{min-height:0;padding:2px 6px;border:none;border-radius:4px;justify-content:flex-start;text-align:left;color:#1f2937}
+[class*="st-key-lv_"] button p,[class*="st-key-lvthem_"] button p,[class*="st-key-lcmuc_"] button p{font-size:12.5px;line-height:1.3;text-align:left;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+[class*="st-key-lv_"] button div,[class*="st-key-lvthem_"] button div,[class*="st-key-lcmuc_"] button div{justify-content:flex-start;width:100%}
 [class*="st-key-lvthem_"] button{background:transparent;color:#667085}
+[class*="st-key-lcmuc_"] button,[class*="st-key-lcmuc_"] button:hover{background:#f1edff;border-left:3px solid #7a5af8}
+[class*="st-key-lcmuc_"] button:hover{filter:brightness(.96)}
+.gv-cham.gv-ca-nhan{background:#7a5af8}
 .st-key-khoi_can_xu_ly ul{margin:0 0 6px}
 @media (max-width:900px){.gv-hang-the{grid-template-columns:repeat(2,minmax(0,1fr))}}
 """ + _css_nhom() + "</style>"
@@ -87,6 +92,7 @@ def legend_html() -> str:
     """Chú giải màu của bốn nhóm việc."""
     muc = "".join(f'<span><span class="gv-cham gv-{n}"></span>{html.escape(config.NHOM_NHAN[n])}</span>'
                   for n in config.NHOM_VIEC)
+    muc += '<span><span class="gv-cham gv-ca-nhan"></span>Lịch cá nhân</span>'
     return f'<div class="gv-chu-giai">{muc}</div>'
 
 

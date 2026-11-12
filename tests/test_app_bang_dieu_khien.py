@@ -58,7 +58,7 @@ def test_ngay_nhieu_viec_thi_gom_lai_va_bam_xem_duoc_het(app_env):
     at = dang_nhap(mo_app(), "QL01", "1111")
     assert len(nut_lich(at)) == 3
     them = at.button(key="lvthem_2026-11-20")
-    assert them.label == "+3 việc khác"
+    assert them.label == "+3 mục khác"
     them.click().run()
     chu = chu_tren_trang(at)
     assert not at.exception and all(f"Việc số {i}" in chu for i in range(6))
@@ -90,7 +90,7 @@ def test_co_hai_bieu_do(app_env):
 def test_bang_trong_khong_sap_va_van_co_lich(app_env):
     app_env()
     at = dang_nhap(mo_app(), "QL01", "1111")
-    assert not at.exception and any("Lịch hạn chót" in x.value for x in at.subheader) and nut_lich(at) == {}
+    assert not at.exception and any("Lịch làm việc" in x.value for x in at.subheader) and nut_lich(at) == {}
 
 
 def test_nhan_vien_chi_thay_viec_cua_minh_tren_lich_va_the(app_env):

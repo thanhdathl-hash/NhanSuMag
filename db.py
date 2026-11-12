@@ -131,17 +131,53 @@ class SheetStore:
         khop = df[df[config.COL_ID_VIEC] == id_viec]
         return None if khop.empty else khop.iloc[0].to_dict()
 
-    def append_task(self, task: dict) -> None:
-        tieu_de, _ = self._doc_tho(config.SHEET_VIEC)
-        thieu = self._thieu(config.SHEET_VIEC, tieu_de)
+    def _them(self, sheet: str, dong: dict) -> None:
+        tieu_de, _ = self._doc_tho(sheet)
+        thieu = self._thieu(sheet, tieu_de)
         if thieu:
-            raise SchemaError(f"Bảng {config.SHEET_VIEC} thiếu cột: {', '.join(thieu)}")
-        values = [task.get(k, "") for k in tieu_de]   # xếp theo thứ tự cột thật của Sheet
+            raise SchemaError(f"Bảng {sheet} thiếu cột: {', '.join(thieu)}")
+        values = [dong.get(k, "") for k in tieu_de]   # xếp theo thứ tự cột thật của Sheet
         try:
-            self._spreadsheet.worksheet(config.SHEET_VIEC).append_row(
-                values, value_input_option=_GHI_THO, table_range="A1")
+            self._spreadsheet.worksheet(sheet).append_row(values, value_input_option=_GHI_THO, table_range="A1")
         except _LOI_MANG as e:
             raise _loi(e) from e
+
+    def _xoa(self, sheet: str, khoa: str) -> None:
+        """Tìm dòng theo khóa ngay lúc xóa rồi xóa đúng một dòng."""
+        tieu_de, dong = self._doc_tho(sheet)
+        cot_khoa = config.SHEET_KEY[sheet]
+        if cot_khoa not in tieu_de:
+            raise SchemaError(f"Bảng {sheet} thiếu cột: {cot_khoa}")
+        i_khoa = tieu_de.index(cot_khoa)
+        so_dong = next((i for i, r in enumerate(dong, start=2) if r[i_khoa] == khoa), None)
+        if so_dong is None:
+            raise TaskNotFound(f"Không tìm thấy {khoa} trong bảng {sheet}")
+        try:
+            self._spreadsheet.worksheet(sheet).delete_rows(so_dong)
+        except _LOI_MANG as e:
+            raise _loi(e) from e
+
+    def append_task(self, task: dict) -> None:
+        self._them(config.SHEET_VIEC, task)
+
+    # --- lịch trình cá nhân ---
+
+    def personal(self) -> pd.DataFrame:
+        return self._doc(config.SHEET_LICH)
+
+    def get_personal(self, id_lich: str) -> dict | None:
+        df = self.personal()
+        khop = df[df[config.COL_ID_LICH] == id_lich]
+        return None if khop.empty else khop.iloc[0].to_dict()
+
+    def append_personal(self, muc: dict) -> None:
+        self._them(config.SHEET_LICH, muc)
+
+    def update_personal(self, id_lich: str, fields: dict) -> None:
+        self._sua(config.SHEET_LICH, id_lich, fields)
+
+    def delete_personal(self, id_lich: str) -> None:
+        self._xoa(config.SHEET_LICH, id_lich)
 
     def update_task(self, id_viec: str, fields: dict) -> None:
         self._sua(config.SHEET_VIEC, id_viec, fields)

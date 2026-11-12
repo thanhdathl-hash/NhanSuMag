@@ -3,7 +3,8 @@
     streamlit run demo.py
 
 Dữ liệu nằm trong bộ nhớ, dùng chung cho mọi tab trình duyệt và mất khi tắt app.
-Tin Telegram không được gửi đi đâu cả; chúng hiện ở thanh bên để bạn thấy app sẽ nhắn gì.
+Tin Telegram và sự kiện Google Calendar không được gửi đi đâu cả; chúng hiện ở thanh bên
+để bạn thấy app sẽ nhắn gì và đẩy gì lên lịch.
 File này KHÔNG dùng để triển khai. App thật vẫn là app.py.
 """
 import io
@@ -15,10 +16,11 @@ import streamlit as st
 
 import config as c
 import db
+import gcal
 import kpi
 import notifier
 import services
-from tests.fakes import FakeSpreadsheet, FakeWorksheet
+from tests.fakes import FakeCalendar, FakeSpreadsheet, FakeWorksheet
 
 APP = str(pathlib.Path(__file__).resolve().parent / "app.py")
 ANH_MAU = "DEMO1"
@@ -110,6 +112,25 @@ def _viec_mau(hom_nay):
     return dong
 
 
+def _lich_mau(hom_nay):
+    """Vài mục lịch trình cá nhân của quản lý và của Nguyễn An."""
+    thu_hai = hom_nay - timedelta(days=hom_nay.weekday())
+
+    def muc(so, id_nv, noi_dung, ngay, bat_dau="", ket_thuc="", lap=c.LAP_KHONG, lap_den=None, xong=""):
+        return {c.COL_ID_LICH: f"L-demo{so:04d}", c.COL_ID_NV: id_nv, c.COL_NOI_DUNG: noi_dung,
+                c.COL_NGAY: ngay.isoformat(), c.COL_GIO_BAT_DAU: bat_dau, c.COL_GIO_KET_THUC: ket_thuc,
+                c.COL_LAP: lap, c.COL_LAP_DEN: "" if lap_den is None else lap_den.isoformat(), c.COL_DA_XONG: xong}
+
+    return [
+        muc(1, "QL01", "Họp giao ban", thu_hai, "08:30", "09:00", c.LAP_TUAN, thu_hai + timedelta(days=56),
+            xong=thu_hai.isoformat()),
+        muc(2, "QL01", "Đi ngân hàng", hom_nay + timedelta(days=2), "14:00"),
+        muc(3, "NV01", "Họp giao ban", thu_hai, "08:30", "09:00", c.LAP_TUAN, thu_hai + timedelta(days=56)),
+        muc(4, "NV01", "Nộp tiền điện", hom_nay + timedelta(days=1)),
+        muc(5, "NV01", "Tập thể dục", hom_nay, "17:30", "18:15", c.LAP_NGAY, hom_nay + timedelta(days=4)),
+    ]
+
+
 def _bang(cols, dong):
     return FakeWorksheet([list(cols)] + [[d.get(k, "") for k in cols] for d in dong])
 
@@ -117,24 +138,27 @@ def _bang(cols, dong):
 @st.cache_resource
 def _moi_truong():
     nhan_su = [{c.COL_ID_NV: i, c.COL_TEN: ten, c.COL_SDT: sdt, c.COL_MA_PIN: pin,
-                c.COL_CHAT_ID: f"demo-{i}", c.COL_ROLE: role} for i, ten, sdt, pin, role in NHAN_SU]
+                c.COL_CHAT_ID: f"demo-{i}", c.COL_ROLE: role,
+                c.COL_LICH_GOOGLE: f"lich-{i.lower()}@demo"} for i, ten, sdt, pin, role in NHAN_SU]
     mau = [dict(zip(c.MAU_COLS, m)) for m in MAU]
     store = db.SheetStore(FakeSpreadsheet({
         c.SHEET_NHAN_SU: _bang(c.NHAN_SU_COLS, nhan_su),
         c.SHEET_MAU: _bang(c.MAU_COLS, mau),
         c.SHEET_VIEC: _bang(c.VIEC_COLS, _viec_mau(services.hom_nay())),
+        c.SHEET_LICH: _bang(c.LICH_COLS, _lich_mau(services.hom_nay())),
     }))
     gia = DemoNotifier()
     gia.anh[ANH_MAU] = _anh_mau()
-    return store, gia
+    return store, gia, FakeCalendar()
 
 
-store, telegram_gia = _moi_truong()
+store, telegram_gia, lich_gia = _moi_truong()
 db.open_store = lambda secrets: store
 notifier.from_secrets = lambda secrets: telegram_gia
+gcal.from_secrets = lambda secrets: lich_gia
 
 st.warning("CHẾ ĐỘ CHẠY THỬ: dữ liệu mẫu nằm trong bộ nhớ, không lưu lại và mất khi tắt app. "
-           "Không có tin Telegram nào được gửi đi.")
+           "Không có tin Telegram hay sự kiện Google Calendar nào được gửi đi.")
 if "user" not in st.session_state:
     st.info("Tài khoản mẫu — Quản lý: QL01, PIN 1111. "
             "Nhân viên: NV01 đến NV05, PIN 1234 (hoặc số điện thoại 0912345671 đến 0912345675). "
@@ -150,3 +174,12 @@ finally:
         for chat_id, noi_dung in reversed(telegram_gia.tin[-10:]):
             st.caption(f"Gửi tới {ten_theo_chat.get(chat_id, chat_id)}")
             st.code(noi_dung, language=None, wrap_lines=True)
+    ten_theo_lich = {f"lich-{i.lower()}@demo": ten for i, ten, *_ in NHAN_SU}
+    with st.sidebar.expander(f"📅 Google Calendar giả lập ({len(lich_gia.events)} tạo, {len(lich_gia.deleted)} xóa)"):
+        if not lich_gia.events:
+            st.caption("Chưa có sự kiện nào. Thử giao việc hoặc thêm lịch trình cá nhân.")
+        for e in reversed(lich_gia.events[-10:]):
+            gio = "cả ngày" if e["gio_bat_dau"] is None else e["gio_bat_dau"].strftime("%H:%M")
+            lap = f", {e['lap'].lower()} đến {e['lap_den']}" if e["lap_den"] else ""
+            st.caption(f"Lịch của {ten_theo_lich.get(e['calendar_id'], e['calendar_id'])}")
+            st.code(f"{e['summary']}\n{e['ngay']} · {gio}{lap}", language=None, wrap_lines=True)

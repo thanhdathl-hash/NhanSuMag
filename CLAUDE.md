@@ -11,7 +11,9 @@ Bản đầu đã viết xong theo kế hoạch 13 task, có test tự động c
 
 Spec là nguồn sự thật. Nếu yêu cầu mới mâu thuẫn với spec, sửa spec trước rồi mới sửa code.
 
-Chưa làm: kiểm tra cuối với Sheet và bot thật (README mục 7), do chủ dự án thực hiện. Chưa tra lại được bản Python mà Streamlit Cloud hỗ trợ và giới hạn ảnh hiện hành của Telegram Bot API.
+Sau bản đầu đã thêm (spec mục 9 và 12): bảng điều khiển có thẻ số liệu, biểu đồ, lịch bấm được; khối "Việc cần xử lý"; tự đẩy việc được giao sang Google Calendar; lịch trình cá nhân (bảng `Lich_Ca_Nhan`).
+
+Chưa làm: kiểm tra cuối với Sheet, bot và Google Calendar thật (README mục 8), do chủ dự án thực hiện. Hành vi của Google Calendar thật (chia sẻ lịch cho service account, thông báo) chưa được kiểm chứng, chỉ test với lịch giả. Chưa tra lại được bản Python mà Streamlit Cloud hỗ trợ và giới hạn ảnh hiện hành của Telegram Bot API.
 
 ## Quyết định đã xác nhận
 
@@ -26,6 +28,7 @@ Chủ dự án xác nhận ngày 2026-11-11, không cần hỏi lại:
 - Dữ liệu: Google Sheets, truy cập bằng service account.
 - Triển khai: Streamlit Community Cloud, repo GitHub private.
 - Thông báo: Telegram Bot API. Nhắc việc 8h chạy bằng Google Apps Script gắn với file Sheet.
+- Google Calendar API qua `google-auth` (không thêm thư viện), dùng chung service account.
 
 Ngày 2026-11-11 các bản sau cài được cùng nhau trên Python 3.13: streamlit 1.67.0, gspread 6.2.1, pandas 3.0.5. Kiểm tra lại phiên bản Python mà Streamlit Cloud hỗ trợ trước khi ghim trong `requirements.txt`.
 
@@ -41,6 +44,7 @@ auth.py         Xác thực
 services.py     Thao tác nghiệp vụ, kiểm tra quyền và trạng thái
 kpi.py          Công thức KPI
 notifier.py     Telegram
+gcal.py         Google Calendar: tạo, xóa sự kiện bằng service account (spec mục 12)
 apps_script/    nhac_viec.gs
 tests/          fakes.py là gspread và Telegram giả dùng cho mọi test
 ```
@@ -64,7 +68,9 @@ python3.12 -m venv .venv
 - Ngày lưu dạng chuỗi `YYYY-MM-DD`. "Hôm nay" tính theo `Asia/Ho_Chi_Minh` bằng `zoneinfo`.
 - Ghi Sheet trước, gửi Telegram sau. Telegram lỗi không được làm hỏng thao tác, trừ trường hợp ảnh chứng minh (xem spec mục 8).
 - Token bot không bao giờ được đưa xuống trình duyệt, kể cả trong URL ảnh.
-- Test không chạm vào Sheet thật và không gọi Telegram thật.
+- Test không chạm vào Sheet thật, không gọi Telegram thật và không gọi Google Calendar thật.
+- Lịch trình cá nhân chỉ chủ của nó thấy trong app: lọc bằng `services.visible_personal` trước khi ra giao diện, và mọi thao tác kiểm tra chủ sở hữu.
+- Google Calendar xử lý như Telegram: ghi Sheet trước, đẩy sau; đẩy lỗi không làm hỏng thao tác.
 
 ## Bí mật
 
@@ -72,4 +78,4 @@ Không commit `.streamlit/secrets.toml`, khóa service account, token bot hay ID
 
 ## Ngoài phạm vi
 
-Sửa/xóa việc trong app, nhiều quản lý, app di động riêng, offline, nhắc việc quá hạn. Đừng thêm khi chưa được yêu cầu.
+Sửa/xóa **việc được giao** trong app (lịch trình cá nhân thì thêm và xóa được, không sửa), nhiều quản lý, app di động riêng, offline, nhắc việc quá hạn, tự cập nhật sự kiện Google khi đổi hạn chót. Đừng thêm khi chưa được yêu cầu.

@@ -18,5 +18,5 @@ def test_cot_bang_viec_dung_thu_tu_spec():
 
 
 def test_cot_nhan_su_va_mau():
-    assert config.NHAN_SU_COLS == ["ID_NV", "Ten", "SDT", "Ma_PIN", "Telegram_ChatID", "Role", "KPI_Quy"]
+    assert config.NHAN_SU_COLS == ["ID_NV", "Ten", "SDT", "Ma_PIN", "Telegram_ChatID", "Role", "KPI_Quy", "Lich_Google"]
     assert config.MAU_COLS == ["ID_Mau", "Ten_Viec", "Mo_Ta", "Trong_So_Diem"]

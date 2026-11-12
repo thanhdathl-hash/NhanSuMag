@@ -12,7 +12,8 @@ SHEET_NHAN_SU, SHEET_MAU, SHEET_VIEC = "Danh_Sach_Nhan_Su", "Thu_Vien_Mau", "Dat
 # --- Cột bảng nhân sự ---
 COL_ID_NV, COL_TEN, COL_SDT, COL_MA_PIN = "ID_NV", "Ten", "SDT", "Ma_PIN"
 COL_CHAT_ID, COL_ROLE, COL_KPI_QUY = "Telegram_ChatID", "Role", "KPI_Quy"
-NHAN_SU_COLS = [COL_ID_NV, COL_TEN, COL_SDT, COL_MA_PIN, COL_CHAT_ID, COL_ROLE, COL_KPI_QUY]
+COL_LICH_GOOGLE = "Lich_Google"   # mã lịch Google "Công việc" của người đó; để trống thì không đẩy
+NHAN_SU_COLS = [COL_ID_NV, COL_TEN, COL_SDT, COL_MA_PIN, COL_CHAT_ID, COL_ROLE, COL_KPI_QUY, COL_LICH_GOOGLE]
 
 # --- Cột bảng mẫu việc ---
 COL_ID_MAU, COL_TEN_VIEC, COL_MO_TA, COL_TRONG_SO_DIEM = "ID_Mau", "Ten_Viec", "Mo_Ta", "Trong_So_Diem"
@@ -30,9 +31,21 @@ VIEC_COLS = [
     COL_SAO, COL_DIEM, COL_GHI_CHU_QL, COL_THANG, COL_QUY,
 ]
 
-SHEET_COLS = {SHEET_NHAN_SU: NHAN_SU_COLS, SHEET_MAU: MAU_COLS, SHEET_VIEC: VIEC_COLS}
+# --- Bảng lịch trình cá nhân (spec mục 12.2) ---
+SHEET_LICH = "Lich_Ca_Nhan"
+COL_ID_LICH, COL_NOI_DUNG, COL_NGAY = "ID_Lich", "Noi_Dung", "Ngay"
+COL_GIO_BAT_DAU, COL_GIO_KET_THUC = "Gio_Bat_Dau", "Gio_Ket_Thuc"
+COL_LAP, COL_LAP_DEN, COL_DA_XONG = "Lap", "Lap_Den", "Da_Xong"
+LICH_COLS = [COL_ID_LICH, COL_ID_NV, COL_NOI_DUNG, COL_NGAY, COL_GIO_BAT_DAU, COL_GIO_KET_THUC,
+             COL_LAP, COL_LAP_DEN, COL_DA_XONG]
+LAP_KHONG, LAP_NGAY, LAP_TUAN = "Không lặp", "Hằng ngày", "Hằng tuần"
+LAP_KIEU = [LAP_KHONG, LAP_NGAY, LAP_TUAN]
+LAP_TOI_DA_NGAY = 366      # chuỗi lặp dài tối đa một năm
+NOI_DUNG_TOI_DA = 200
+
+SHEET_COLS = {SHEET_NHAN_SU: NHAN_SU_COLS, SHEET_MAU: MAU_COLS, SHEET_VIEC: VIEC_COLS, SHEET_LICH: LICH_COLS}
 # Cột khóa của từng bảng
-SHEET_KEY = {SHEET_NHAN_SU: COL_ID_NV, SHEET_MAU: COL_ID_MAU, SHEET_VIEC: COL_ID_VIEC}
+SHEET_KEY = {SHEET_NHAN_SU: COL_ID_NV, SHEET_MAU: COL_ID_MAU, SHEET_VIEC: COL_ID_VIEC, SHEET_LICH: COL_ID_LICH}
 
 # --- Trạng thái ---
 TT_MOI_GIAO, TT_DANG_LAM, TT_CHO_DUYET = "Mới giao", "Đang làm", "Chờ duyệt"
@@ -67,6 +80,7 @@ CACHE_TTL_GIAY = 30
 MSG_DANG_NHAP_SAI = "Thông tin đăng nhập không đúng."
 MSG_TAI_KHOAN_KHOA = "Nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút."
 MSG_DA_LUU = "Đã lưu."
+MSG_CHUA_DAY_LICH = "Đã lưu nhưng chưa đồng bộ được với Google Calendar."
 MSG_DA_LUU_CHUA_GUI = "Đã lưu nhưng chưa gửi được thông báo Telegram."
 MSG_LOI_QUYEN_SHEET = ("Google từ chối truy cập file Sheet. Hãy kiểm tra: file đã được chia sẻ cho email của "
                        "service account với quyền Người chỉnh sửa, và Google Sheets API đã được bật.")

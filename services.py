@@ -6,13 +6,14 @@ Nguyên tắc: ghi Sheet trước, gửi Telegram sau. Telegram lỗi không h�
 import re
 import secrets
 from dataclasses import dataclass
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 
 import config
 import db
+import gcal
 import kpi
 import notifier as tin
 
@@ -39,6 +40,7 @@ class Result:
     notified: bool          # False: đã lưu nhưng chưa gửi được Telegram
     kpi_saved: bool = True  # False: đã duyệt nhưng chưa ghi được KPI quý vào bảng nhân sự
     warning: str | None = None   # đã lưu, nhưng có điều người dùng cần biết
+    calendar_pushed: bool | None = None   # None: không đẩy Google Calendar; False: đẩy lỗi
 
 
 # --- Thời gian ---
@@ -100,8 +102,15 @@ def _sinh_id(da_co: set[str]) -> str:
             return id_viec
 
 
+def _day_lich(calendar, lich_id: str, *args, **kwargs) -> bool | None:
+    """Đẩy một sự kiện sang Google Calendar. None nếu không đẩy (chưa cấu hình hoặc người đó chưa có lịch)."""
+    if calendar is None or not (lich_id or "").strip():
+        return None
+    return bool(calendar.add_event(lich_id, *args, **kwargs))
+
+
 def create_task(store, notifier, user: dict, *, ten_viec: str, mo_ta: str, nguoi_nhan: str,
-                han_chot: date, trong_so: int, today: date) -> Result:
+                han_chot: date, trong_so: int, today: date, calendar=None) -> Result:
     _chi_quan_ly(user)
     ten_viec = (ten_viec or "").strip()
     mo_ta = (mo_ta or "").strip()
@@ -144,7 +153,10 @@ def create_task(store, notifier, user: dict, *, ten_viec: str, mo_ta: str, nguoi
     })
     store.append_task(task)
     da_gui = notifier.send_message(nguoi[config.COL_CHAT_ID], tin.msg_t1(task))    # T1
-    return Result(task, da_gui)
+    # Sự kiện cả ngày vào ngày hạn chót trên lịch của người nhận (spec mục 12.1)
+    da_day = _day_lich(calendar, nguoi.get(config.COL_LICH_GOOGLE, ""), gcal.event_id("gv", task[config.COL_ID_VIEC]),
+                       f"Hạn chót: {ten_viec}", mo_ta, han_chot)
+    return Result(task, da_gui, calendar_pushed=da_day)
 
 
 # --- Thao tác của nhân viên ---
@@ -507,3 +519,143 @@ def todo_groups(tasks: pd.DataFrame, user: dict, today: date) -> list[dict]:
 
 def todo_count(groups: list[dict]) -> int:
     return sum(len(g["viec"]) for g in groups)
+
+
+# --- Lịch trình cá nhân (spec mục 12.2) ---
+
+_KHONG_THAY_LICH = "Không tìm thấy mục lịch này. Có thể nó đã bị xóa, hãy bấm Làm mới."
+
+
+def _gio_hoac_none(s: str) -> time | None:
+    try:
+        return time.fromisoformat(s.strip()) if s.strip() else None
+    except ValueError:
+        return None
+
+
+def occurrences(muc: dict, tu: date, den: date) -> list[date]:
+    """Các ngày một mục lịch xảy ra trong khoảng [tu, den]. Dữ liệu hỏng thì chỉ còn ngày đầu, hoặc rỗng."""
+    dau = _ngay_hoac_none(muc[config.COL_NGAY])
+    if dau is None:
+        return []
+    buoc = {config.LAP_NGAY: 1, config.LAP_TUAN: 7}.get(muc[config.COL_LAP])
+    cuoi = _ngay_hoac_none(muc[config.COL_LAP_DEN]) if buoc else None
+    if buoc is None or cuoi is None:
+        return [dau] if tu <= dau <= den else []
+    cuoi = min(cuoi, dau + timedelta(days=config.LAP_TOI_DA_NGAY), den)     # chặn chuỗi sửa tay quá dài
+    bat_dau = dau if dau >= tu else dau + timedelta(days=-(-(tu - dau).days // buoc) * buoc)
+    return [bat_dau + timedelta(days=i) for i in range(0, (cuoi - bat_dau).days + 1, buoc)]
+
+
+def visible_personal(items: pd.DataFrame, user: dict) -> pd.DataFrame:
+    """Lịch trình cá nhân chỉ chủ của nó thấy, kể cả quản lý cũng chỉ thấy của mình."""
+    if not (_la_quan_ly(user) or _la_nhan_vien(user)) or not user.get(config.COL_ID_NV):
+        return items.iloc[0:0]
+    cua_toi = items[(items[config.COL_ID_NV] == user[config.COL_ID_NV]) & (items[config.COL_ID_LICH] != "")]
+    return cua_toi.drop_duplicates(subset=config.COL_ID_LICH, keep="first")   # dòng thêm tay thiếu mã hoặc trùng mã
+
+
+def personal_events(items: pd.DataFrame, year: int, month: int) -> dict[date, list[dict]]:
+    """Các lần xảy ra trong tháng, gom theo ngày. Mỗi lần là dòng lịch kèm "ngay_xay_ra" và "xong"."""
+    tu = date(year, month, 1)
+    den = date(*shift_month(year, month, 1), 1) - timedelta(days=1)
+    lich: dict[date, list[dict]] = {}
+    for muc in items.to_dict("records"):
+        da_xong = set(muc[config.COL_DA_XONG].replace(" ", "").split(","))
+        for ngay in occurrences(muc, tu, den):
+            lich.setdefault(ngay, []).append({**muc, "ngay_xay_ra": ngay, "xong": ngay.isoformat() in da_xong})
+    for ds in lich.values():   # việc cả ngày trước, rồi theo giờ
+        ds.sort(key=lambda m: (m[config.COL_GIO_BAT_DAU], m[config.COL_NOI_DUNG]))
+    return lich
+
+
+def _doc_lich_cua_toi(store, user: dict, id_lich: str) -> dict:
+    """Đọc mới một mục lịch và kiểm tra người gọi là chủ. Không tiết lộ mục của người khác có tồn tại."""
+    muc = store.get_personal(id_lich)
+    if muc is None or not user.get(config.COL_ID_NV) or muc[config.COL_ID_NV] != user[config.COL_ID_NV]:
+        raise PermissionDenied(_KHONG_THAY_LICH)
+    return muc
+
+
+def add_personal(store, calendar, user: dict, *, noi_dung: str, ngay: date,
+                 gio_bat_dau: time | None = None, gio_ket_thuc: time | None = None,
+                 lap: str = config.LAP_KHONG, lap_den: date | None = None) -> Result:
+    if not (_la_quan_ly(user) or _la_nhan_vien(user)):
+        raise PermissionDenied("Tài khoản chưa được gán vai trò hợp lệ.")
+    noi_dung = (noi_dung or "").strip()
+    if not noi_dung:
+        raise InvalidInput("Chưa nhập nội dung.")
+    if len(noi_dung) > config.NOI_DUNG_TOI_DA:
+        raise InvalidInput(f"Nội dung dài tối đa {config.NOI_DUNG_TOI_DA} ký tự.")
+    if isinstance(ngay, datetime):
+        ngay = ngay.date()
+    if not isinstance(ngay, date):
+        raise InvalidInput("Chưa chọn ngày.")
+    for gio in (gio_bat_dau, gio_ket_thuc):
+        if gio is not None and not isinstance(gio, time):
+            raise InvalidInput("Giờ không hợp lệ.")
+    if gio_ket_thuc is not None and gio_bat_dau is None:
+        raise InvalidInput("Có giờ kết thúc thì phải có giờ bắt đầu.")
+    if gio_bat_dau is not None and gio_ket_thuc is not None and gio_ket_thuc <= gio_bat_dau:
+        raise InvalidInput("Giờ kết thúc phải sau giờ bắt đầu.")
+    if lap not in config.LAP_KIEU:
+        raise InvalidInput("Kiểu lặp không hợp lệ.")
+    if lap == config.LAP_KHONG:
+        lap_den = None
+    else:
+        if isinstance(lap_den, datetime):
+            lap_den = lap_den.date()
+        if not isinstance(lap_den, date):
+            raise InvalidInput("Mục lặp lại cần có ngày kết thúc lặp.")
+        if lap_den < ngay:
+            raise InvalidInput("Ngày kết thúc lặp phải từ ngày bắt đầu trở đi.")
+        if (lap_den - ngay).days > config.LAP_TOI_DA_NGAY:
+            raise InvalidInput(f"Chuỗi lặp dài tối đa {config.LAP_TOI_DA_NGAY} ngày.")
+
+    def gio_chuoi(g):
+        return "" if g is None else g.strftime("%H:%M")
+
+    muc = {k: "" for k in config.LICH_COLS}
+    muc.update({
+        config.COL_ID_LICH: "L-" + _sinh_id(set())[2:],
+        config.COL_ID_NV: user[config.COL_ID_NV],
+        config.COL_NOI_DUNG: noi_dung,
+        config.COL_NGAY: ngay.isoformat(),
+        config.COL_GIO_BAT_DAU: gio_chuoi(gio_bat_dau),
+        config.COL_GIO_KET_THUC: gio_chuoi(gio_ket_thuc),
+        config.COL_LAP: lap,
+        config.COL_LAP_DEN: "" if lap_den is None else lap_den.isoformat(),
+    })
+    da_co = set(store.personal()[config.COL_ID_LICH])
+    while muc[config.COL_ID_LICH] in da_co:
+        muc[config.COL_ID_LICH] = "L-" + _sinh_id(set())[2:]
+    store.append_personal(muc)
+    da_day = _day_lich(calendar, user.get(config.COL_LICH_GOOGLE, ""), gcal.event_id("cn", muc[config.COL_ID_LICH]),
+                       noi_dung, "", ngay, gio_bat_dau, gio_ket_thuc, lap, lap_den)
+    return Result(muc, True, calendar_pushed=da_day)
+
+
+def set_personal_done(store, user: dict, id_lich: str, ngay: date, done: bool) -> Result:
+    """Đánh dấu (hoặc bỏ đánh dấu) một lần xảy ra là đã xong. Không đồng bộ sang Google."""
+    muc = _doc_lich_cua_toi(store, user, id_lich)
+    if ngay not in occurrences(muc, ngay, ngay):
+        raise InvalidInput("Ngày này không thuộc mục lịch.")
+    da_xong = {d for d in muc[config.COL_DA_XONG].replace(" ", "").split(",") if d}
+    (da_xong.add if done else da_xong.discard)(ngay.isoformat())
+    thay_doi = {config.COL_DA_XONG: ",".join(sorted(da_xong))}
+    store.update_personal(id_lich, thay_doi)
+    return Result({**muc, **thay_doi}, True)
+
+
+def delete_personal(store, calendar, user: dict, id_lich: str) -> Result:
+    """Xóa một mục lịch (cả chuỗi nếu lặp) và sự kiện tương ứng bên Google."""
+    muc = _doc_lich_cua_toi(store, user, id_lich)
+    try:
+        store.delete_personal(id_lich)
+    except db.TaskNotFound:
+        raise PermissionDenied(_KHONG_THAY_LICH) from None
+    da_xoa = None
+    lich_id = user.get(config.COL_LICH_GOOGLE, "")
+    if calendar is not None and (lich_id or "").strip():
+        da_xoa = bool(calendar.delete_event(lich_id, gcal.event_id("cn", id_lich)))
+    return Result(muc, True, calendar_pushed=da_xoa)

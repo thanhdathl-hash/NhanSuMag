@@ -8,6 +8,7 @@ import streamlit as st
 import auth
 import config
 import db
+import gcal
 import notifier
 import services
 import ui
@@ -33,6 +34,11 @@ def get_notifier():
 
 
 @st.cache_resource
+def get_calendar():
+    return gcal.from_secrets(st.secrets)
+
+
+@st.cache_resource
 def get_guard():
     return auth.LoginGuard()
 
@@ -52,6 +58,11 @@ def load_tasks():
     return get_store().tasks()
 
 
+@st.cache_data(ttl=config.CACHE_TTL_GIAY)
+def load_personal():
+    return get_store().personal()
+
+
 # --- Thông báo sau thao tác ---
 
 def flash(kieu: str, noi_dung: str) -> None:
@@ -59,8 +70,11 @@ def flash(kieu: str, noi_dung: str) -> None:
 
 
 def hien_flash() -> None:
-    for kieu, noi_dung in st.session_state.pop("flash", []):
-        getattr(st, kieu)(noi_dung)
+    # Luôn đặt trong một khung cố định: thông báo hiện rồi mất không làm xê dịch các khối bên dưới
+    # (nếu xê dịch, ô "Thêm lịch trình cá nhân" đang mở sẽ tự gập lại giữa lúc người dùng gõ).
+    with st.container():
+        for kieu, noi_dung in st.session_state.pop("flash", []):
+            getattr(st, kieu)(noi_dung)
 
 
 def thuc_hien(ham, *args, **kwargs) -> bool:
@@ -79,12 +93,18 @@ def thuc_hien(ham, *args, **kwargs) -> bool:
     st.cache_data.clear()
     if not kq.kpi_saved:
         flash("warning", f"Đã duyệt, nhưng cột {config.COL_KPI_QUY} trên Sheet chưa cập nhật được.")
+    tron_ven = True
     if kq.warning:
         flash("warning", kq.warning)
-    elif kq.notified:
-        flash("success", config.MSG_DA_LUU)
-    else:
+        tron_ven = False
+    elif not kq.notified:
         flash("warning", config.MSG_DA_LUU_CHUA_GUI)
+        tron_ven = False
+    if kq.calendar_pushed is False:
+        flash("warning", config.MSG_CHUA_DAY_LICH)
+        tron_ven = False
+    if tron_ven:
+        flash("success", config.MSG_DA_LUU)
     return True
 
 
@@ -187,28 +207,73 @@ def chi_tiet_viec(v: dict, ten_theo_id: dict | None) -> None:
     st.caption(f"Mã việc: {v[config.COL_ID_VIEC]}")
 
 
-@st.dialog("Chi tiết công việc", width="large")
-def hop_chi_tiet(ds_viec: list[dict], ten_theo_id: dict | None) -> None:
-    for i, v in enumerate(ds_viec):
+def _nhan_lich(m: dict) -> str:
+    """Nhãn một mục lịch cá nhân: giờ đứng trước nội dung, gạch ngang nếu đã xong."""
+    gio = m[config.COL_GIO_BAT_DAU]
+    nhan = (f"{ui.md_escape(gio)} " if gio else "") + ui.md_escape(m[config.COL_NOI_DUNG])
+    return f"~~{nhan}~~" if m["xong"] else nhan
+
+
+def cb_lich_xong(id_lich: str, ngay, da_xong: bool) -> None:
+    thuc_hien(services.set_personal_done, get_store(), st.session_state["user"], id_lich, ngay, da_xong)
+    st.session_state["dong_hop"] = True     # báo hộp chi tiết tự đóng để trang hiện kết quả
+
+
+def cb_lich_xoa(id_lich: str) -> None:
+    thuc_hien(services.delete_personal, get_store(), get_calendar(), st.session_state["user"], id_lich)
+    st.session_state["dong_hop"] = True
+
+
+def chi_tiet_lich(m: dict) -> None:
+    """Một lần xảy ra của mục lịch cá nhân, kèm nút đánh dấu xong và xóa."""
+    id_lich, ngay = m[config.COL_ID_LICH], m["ngay_xay_ra"]
+    st.markdown(f"**{ui.md_escape(m[config.COL_NOI_DUNG])}**")
+    gio = "Cả ngày"
+    if m[config.COL_GIO_BAT_DAU]:
+        gio = m[config.COL_GIO_BAT_DAU] + (f" đến {m[config.COL_GIO_KET_THUC]}" if m[config.COL_GIO_KET_THUC] else "")
+    co_lap = m[config.COL_LAP] in (config.LAP_NGAY, config.LAP_TUAN)
+    dong = ["Lịch cá nhân (chỉ mình bạn thấy trong app)", f"Ngày: {ngay.isoformat()} · Giờ: {ui.md_escape(gio)}"]
+    if co_lap:
+        dong.append(f"Lặp lại: {ui.md_escape(m[config.COL_LAP])}, đến {ui.md_escape(m[config.COL_LAP_DEN])}")
+    dong.append("Trạng thái: " + ("đã xong" if m["xong"] else "chưa xong"))
+    st.markdown("  \n".join(dong))
+    khoa = f"{id_lich}_{ngay.isoformat()}"
+    xong, xoa = st.columns(2)
+    xong.button("Bỏ đánh dấu xong" if m["xong"] else "Đánh dấu xong", key=f"lcxong_{khoa}", width="stretch",
+                on_click=cb_lich_xong, args=(id_lich, ngay, not m["xong"]))
+    xoa.button("Xóa cả chuỗi lặp" if co_lap else "Xóa", key=f"lcxoa_{khoa}", width="stretch",
+               on_click=cb_lich_xoa, args=(id_lich,))
+
+
+@st.dialog("Chi tiết", width="large")
+def hop_chi_tiet(ds_muc: list[tuple[str, dict]], ten_theo_id: dict | None) -> None:
+    """ds_muc: danh sách ("viec", dòng việc) hoặc ("lich", lần xảy ra của mục lịch cá nhân)."""
+    if st.session_state.pop("dong_hop", False):
+        st.rerun()      # một nút trong hộp vừa chạy xong: tải lại cả trang, hộp đóng
+    for i, (loai, muc) in enumerate(ds_muc):
         if i:
             st.divider()
-        chi_tiet_viec(v, ten_theo_id)
+        if loai == "viec":
+            chi_tiet_viec(muc, ten_theo_id)
+        else:
+            chi_tiet_lich(muc)
 
 
-def khoi_lich(tasks, ten_theo_id: dict | None = None) -> None:
-    """Lịch tháng thể hiện hạn chót; bấm vào một việc để xem chi tiết.
+def khoi_lich(tasks, lich_cua_toi, ten_theo_id: dict | None = None) -> None:
+    """Lịch tháng: hạn chót các việc và lịch trình cá nhân của người đang đăng nhập. Bấm vào một mục để xem chi tiết.
 
     Truyền ten_theo_id để ghi tên người nhận cạnh tên việc.
     """
     hom_nay = services.hom_nay()
     nam, thang = _thang_dang_xem()
     tieu_de, truoc, nay, sau = st.columns([6, 1, 1.4, 1], vertical_alignment="bottom")
-    tieu_de.subheader(f"Lịch hạn chót · Tháng {thang}/{nam}")
+    tieu_de.subheader(f"Lịch làm việc · Tháng {thang}/{nam}")
     truoc.button("◀", key="lich_truoc", help="Tháng trước", on_click=cb_doi_thang, args=(-1,), width="stretch")
     nay.button("Hôm nay", key="lich_hom_nay", on_click=cb_ve_thang_nay, width="stretch")
     sau.button("▶", key="lich_sau", help="Tháng sau", on_click=cb_doi_thang, args=(1,), width="stretch")
 
-    lich = services.calendar_events(tasks, nam, thang, hom_nay)
+    lich_viec = services.calendar_events(tasks, nam, thang, hom_nay)
+    lich_rieng = services.personal_events(lich_cua_toi, nam, thang)
     can_xem = None
     with st.container(key="luoi_lich"):
         for cot, thu in zip(st.columns(7), ui.THU):
@@ -219,22 +284,65 @@ def khoi_lich(tasks, ten_theo_id: dict | None = None) -> None:
                 loai = "lichngoai" if not trong_thang else ("lichnay" if ngay == hom_nay else "lichngay")
                 with cot.container(key=f"{loai}_{ngay.isoformat()}"):
                     st.html(f'<span class="gv-so-ngay">{ngay.day}</span>')
-                    ds = lich.get(ngay, []) if trong_thang else []
-                    for v in ds[:ui.SO_VIEC_MOI_O]:
-                        nhan = ui.md_escape(v[config.COL_TEN_VIEC])
-                        if ten_theo_id is not None:
-                            nguoi = ten_theo_id.get(v[config.COL_NGUOI_NHAN], v[config.COL_NGUOI_NHAN])
-                            nhan += f" · {ui.md_escape(nguoi)}"
-                        if st.button(nhan, key=f"lv_{v['nhom']}_{v[config.COL_ID_VIEC]}", width="stretch"):
-                            can_xem = [v]
+                    if not trong_thang:
+                        continue
+                    # việc được giao xếp trước, rồi tới lịch cá nhân theo giờ
+                    ds = [("viec", v) for v in lich_viec.get(ngay, [])] + [("lich", m) for m in lich_rieng.get(ngay, [])]
+                    for kieu, muc in ds[:ui.SO_VIEC_MOI_O]:
+                        if kieu == "viec":
+                            nhan = ui.md_escape(muc[config.COL_TEN_VIEC])
+                            if ten_theo_id is not None:
+                                nguoi = ten_theo_id.get(muc[config.COL_NGUOI_NHAN], muc[config.COL_NGUOI_NHAN])
+                                nhan += f" · {ui.md_escape(nguoi)}"
+                            khoa = f"lv_{muc['nhom']}_{muc[config.COL_ID_VIEC]}"
+                        else:
+                            nhan = _nhan_lich(muc)
+                            khoa = f"lcmuc_{muc[config.COL_ID_LICH]}_{ngay.isoformat()}"
+                        if st.button(nhan, key=khoa, width="stretch"):
+                            can_xem = [(kieu, muc)]
                     if len(ds) > ui.SO_VIEC_MOI_O:
-                        if st.button(f"+{len(ds) - ui.SO_VIEC_MOI_O} việc khác",
+                        if st.button(f"+{len(ds) - ui.SO_VIEC_MOI_O} mục khác",
                                      key=f"lvthem_{ngay.isoformat()}", width="stretch"):
                             can_xem = ds
     st.html(ui.legend_html())
-    st.caption("Bấm vào một việc trên lịch để xem chi tiết.")
+    st.caption("Bấm vào một mục trên lịch để xem chi tiết.")
+    khoi_them_lich()
     if can_xem:
         hop_chi_tiet(can_xem, ten_theo_id)
+
+
+def cb_them_lich() -> None:
+    da_luu = thuc_hien(
+        services.add_personal, get_store(), get_calendar(), st.session_state["user"],
+        noi_dung=st.session_state.get("lcf_noi_dung", ""),
+        ngay=st.session_state.get("lcf_ngay"),
+        gio_bat_dau=st.session_state.get("lcf_bat_dau"),
+        gio_ket_thuc=st.session_state.get("lcf_ket_thuc"),
+        lap=st.session_state.get("lcf_lap", config.LAP_KHONG),
+        lap_den=st.session_state.get("lcf_lap_den"),
+    )
+    if da_luu:   # xóa ô nhập để thêm mục tiếp; khi lỗi thì giữ nguyên
+        st.session_state["lcf_noi_dung"] = ""
+        st.session_state["lcf_bat_dau"] = None
+        st.session_state["lcf_ket_thuc"] = None
+        st.session_state["lcf_lap"] = config.LAP_KHONG
+        st.session_state["lcf_lap_den"] = None
+
+
+def khoi_them_lich() -> None:
+    """Ô thêm lịch trình cá nhân: việc nhỏ, sinh hoạt hằng ngày, ngoài việc được giao."""
+    with st.expander("➕ Thêm lịch trình cá nhân"):
+        st.caption("Dành cho việc ngoài việc được giao. Trong app chỉ mình bạn thấy. "
+                   "Nếu bạn đã cài lịch Google, mục này cũng được đẩy sang đó.")
+        st.text_input("Nội dung", key="lcf_noi_dung", max_chars=config.NOI_DUNG_TOI_DA)
+        c1, c2, c3 = st.columns(3)
+        c1.date_input("Ngày", value=services.hom_nay(), format="DD/MM/YYYY", key="lcf_ngay")
+        c2.time_input("Giờ bắt đầu (bỏ trống nếu cả ngày)", value=None, step=900, key="lcf_bat_dau")
+        c3.time_input("Giờ kết thúc (có thể bỏ trống)", value=None, step=900, key="lcf_ket_thuc")
+        c4, c5 = st.columns(2)
+        c4.selectbox("Lặp lại", config.LAP_KIEU, key="lcf_lap")
+        c5.date_input("Lặp đến hết ngày (khi có lặp)", value=None, format="DD/MM/YYYY", key="lcf_lap_den")
+        st.button("Thêm vào lịch", key="lcf_them", on_click=cb_them_lich)
 
 
 # --- Khối "Việc cần xử lý" ---
@@ -279,11 +387,11 @@ def cb_nop(id_viec: str) -> None:
     )
 
 
-def tab_viec_cua_toi(viec_cua_toi) -> None:
+def tab_viec_cua_toi(viec_cua_toi, lich_cua_toi) -> None:
+    khoi_lich(viec_cua_toi, lich_cua_toi)
     if viec_cua_toi.empty:
         st.info("Bạn chưa có việc nào.")
         return
-    khoi_lich(viec_cua_toi)
     for trang_thai in THU_TU_NHOM:
         nhom = viec_cua_toi[viec_cua_toi[config.COL_TRANG_THAI] == trang_thai]
         if nhom.empty:
@@ -325,12 +433,12 @@ def tab_kpi_cua_toi(viec_cua_toi, user: dict) -> None:
                "100% tương ứng với mọi việc đúng hạn và đạt 4 sao; cao nhất là 120%.")
 
 
-def man_hinh_nhan_vien(user: dict, viec_thay_duoc) -> None:
+def man_hinh_nhan_vien(user: dict, viec_thay_duoc, lich_cua_toi) -> None:
     st.html(ui.stat_cards_html(services.dashboard_counts(viec_thay_duoc, services.hom_nay())))
     khoi_can_xu_ly(viec_thay_duoc, user)
     tab_viec, tab_kpi = st.tabs(["Việc của tôi", "KPI của tôi"])
     with tab_viec:
-        tab_viec_cua_toi(viec_thay_duoc)
+        tab_viec_cua_toi(viec_thay_duoc, lich_cua_toi)
     with tab_kpi:
         tab_kpi_cua_toi(viec_thay_duoc, user)
 
@@ -379,6 +487,7 @@ def cb_giao_viec() -> None:
         han_chot=st.session_state.get("gv_han_chot"),
         trong_so=int(st.session_state.get("gv_trong_so", TRONG_SO_MAC_DINH)),
         today=services.hom_nay(),
+        calendar=get_calendar(),
     )
     if da_luu:   # xóa ô nhập để giao việc tiếp; khi lỗi thì giữ nguyên
         st.session_state["gv_mau"] = GO_TAY
@@ -469,7 +578,7 @@ def tab_cho_duyet(tasks, nhan_su) -> None:
                 st.button("Trả lại", key=f"tra_{id_viec}", on_click=cb_tra_lai, args=(id_viec,))
 
 
-def tab_tong_quan(tasks, nhan_su) -> None:
+def tab_tong_quan(tasks, nhan_su, lich_cua_toi) -> None:
     hom_nay = services.hom_nay()
     ds_quy = services.quarters(tasks, hom_nay)
     quy = st.selectbox("Quý", ds_quy, index=ds_quy.index(services.current_quarter(hom_nay)), key="tq_quy")
@@ -491,7 +600,7 @@ def tab_tong_quan(tasks, nhan_su) -> None:
         else:
             st.altair_chart(ui.workload_bars(services.workload_table(trong_quy, nhan_su, hom_nay)), width="stretch")
 
-    khoi_lich(tasks, ten_theo_id(nhan_su))
+    khoi_lich(tasks, lich_cua_toi, ten_theo_id(nhan_su))
 
     st.subheader(f"KPI quý {quy}")
     bang = services.kpi_table(tasks, nhan_su, quy)
@@ -537,11 +646,11 @@ def tab_tat_ca(tasks, nhan_su) -> None:
     st.dataframe(loc, hide_index=True, width="stretch")
 
 
-def man_hinh_quan_ly(user: dict, tasks, nhan_su) -> None:
+def man_hinh_quan_ly(user: dict, tasks, nhan_su, lich_cua_toi) -> None:
     khoi_can_xu_ly(tasks, user, ten_theo_id(nhan_su))
     t1, t2, t3, t4 = st.tabs(["Tổng quan", "Giao việc", config.TT_CHO_DUYET, "Tất cả công việc"])
     with t1:
-        tab_tong_quan(tasks, nhan_su)
+        tab_tong_quan(tasks, nhan_su, lich_cua_toi)
     with t2:
         tab_giao_viec(nhan_su)
     with t3:
@@ -553,6 +662,7 @@ def man_hinh_quan_ly(user: dict, tasks, nhan_su) -> None:
 # --- Điểm vào ---
 
 def main() -> None:
+    st.session_state.pop("dong_hop", None)
     try:
         get_store()
         nhan_su = load_employees()
@@ -579,6 +689,7 @@ def main() -> None:
     hien_flash()
     try:
         viec_tho = load_tasks()
+        lich_tho = load_personal()
     except db.StoreError as e:
         st.error(str(e))
         st.stop()
@@ -588,10 +699,12 @@ def main() -> None:
         for canh_bao in services.sheet_warnings(viec_tho, nhan_su):
             st.warning(canh_bao)
 
+    lich_cua_toi = services.visible_personal(lich_tho, user)   # lịch cá nhân: chỉ của người đang đăng nhập
+
     if user[config.COL_ROLE] == config.ROLE_NHAN_VIEN:
-        man_hinh_nhan_vien(user, viec_thay_duoc)
+        man_hinh_nhan_vien(user, viec_thay_duoc, lich_cua_toi)
     elif user[config.COL_ROLE] == config.ROLE_QUAN_LY:
-        man_hinh_quan_ly(user, viec_thay_duoc, nhan_su)
+        man_hinh_quan_ly(user, viec_thay_duoc, nhan_su, lich_cua_toi)
     else:
         st.error(f"Tài khoản chưa được gán vai trò hợp lệ ở cột {config.COL_ROLE}. Hãy báo quản lý.")
 

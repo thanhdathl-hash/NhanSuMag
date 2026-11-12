@@ -6,6 +6,7 @@ import pytest
 
 import config as c
 import db
+import gcal
 import notifier
 import services
 from tests.conftest import chu_tren_trang, dang_nhap, html_tren_trang
@@ -21,6 +22,7 @@ def mo_demo(monkeypatch):
     # demo.py thay db.open_store và notifier.from_secrets; monkeypatch trả lại bản gốc sau test
     monkeypatch.setattr(db, "open_store", db.open_store)
     monkeypatch.setattr(notifier, "from_secrets", notifier.from_secrets)
+    monkeypatch.setattr(gcal, "from_secrets", gcal.from_secrets)
     monkeypatch.setattr(services, "hom_nay", lambda: date(2026, 11, 11))   # dữ liệu mẫu tính theo "hôm nay"
     st.cache_resource.clear()
     st.cache_data.clear()
@@ -74,3 +76,14 @@ def test_demo_khong_dung_gspread_that(mo_demo, monkeypatch):
     monkeypatch.setattr(gspread, "service_account_from_dict", cam)
     at = dang_nhap(mo_demo(), "QL01", "1111")
     assert not at.exception
+
+
+def test_chay_thu_co_lich_ca_nhan_va_google_calendar_gia_lap(mo_demo):
+    at = dang_nhap(mo_demo(), "NV01", "1234")
+    assert not at.exception
+    rieng = [b.label for b in at.button if (b.key or "").startswith("lcmuc_")]
+    assert any("Họp giao ban" in x for x in rieng) and any("Tập thể dục" in x for x in rieng)
+    at.text_input(key="lcf_noi_dung").set_value("Mua quà sinh nhật")
+    at.button(key="lcf_them").click().run()
+    assert not at.exception and at.success[0].value == c.MSG_DA_LUU
+    assert "Mua quà sinh nhật" in " | ".join(k.value for k in at.sidebar.code)      # hiện ở mục Google Calendar giả lập
