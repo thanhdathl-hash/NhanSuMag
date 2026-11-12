@@ -84,3 +84,19 @@ NHOM_DANG_LAM, NHOM_CHO_DUYET, NHOM_QUA_HAN, NHOM_HOAN_THANH = "dang_lam", "cho_
 NHOM_VIEC = [NHOM_DANG_LAM, NHOM_CHO_DUYET, NHOM_QUA_HAN, NHOM_HOAN_THANH]
 NHOM_NHAN = {NHOM_DANG_LAM: "Đang thực hiện", NHOM_CHO_DUYET: TT_CHO_DUYET,
              NHOM_QUA_HAN: "Quá hạn", NHOM_HOAN_THANH: TT_HOAN_THANH}
+
+# --- Khối "Việc cần xử lý" ---
+SO_NGAY_SAP_DEN_HAN = 3
+CXL_CHO_DUYET, CXL_QUA_HAN, CXL_HOM_NAY = "cho_duyet", "qua_han", "hom_nay"
+CXL_LAM_LAI, CXL_SAP_DEN_HAN, CXL_MOI_GIAO = "lam_lai", "sap_den_han", "moi_giao"
+CXL_NHAN = {
+    CXL_CHO_DUYET: "Chờ bạn duyệt",
+    CXL_QUA_HAN: "Quá hạn chưa nộp",
+    CXL_HOM_NAY: "Đến hạn hôm nay",
+    CXL_LAM_LAI: "Bị trả lại, cần làm lại",
+    CXL_SAP_DEN_HAN: f"Đến hạn trong {SO_NGAY_SAP_DEN_HAN} ngày tới",
+    CXL_MOI_GIAO: "Mới giao, chưa bắt đầu",
+}
+# Màu của từng mục, lấy theo bốn nhóm việc
+CXL_NHOM = {CXL_CHO_DUYET: NHOM_CHO_DUYET, CXL_QUA_HAN: NHOM_QUA_HAN, CXL_HOM_NAY: NHOM_CHO_DUYET,
+            CXL_LAM_LAI: NHOM_QUA_HAN, CXL_SAP_DEN_HAN: NHOM_DANG_LAM, CXL_MOI_GIAO: NHOM_DANG_LAM}

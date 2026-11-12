@@ -226,12 +226,17 @@ Với ảnh, bước 2 phải thành công thì mới chuyển trạng thái, v�
 
 Màn hình đăng nhập: ô ID hoặc SĐT, ô PIN.
 
+Khối "Việc cần xử lý" (cập nhật 2026-11-12) nằm đầu trang của cả hai vai, kèm một dòng nhắc số việc ở thanh bên. Khối tính trực tiếp từ bảng việc mỗi lần mở trang, không lưu thêm dữ liệu, không có trạng thái đã đọc. Nó bổ sung chứ không thay Telegram.
+
+- Quản lý: việc chờ duyệt; việc quá hạn chưa nộp; việc đến hạn hôm nay chưa nộp.
+- Nhân viên, mỗi việc chỉ ở nhóm gấp nhất: quá hạn chưa nộp; bị trả lại (kèm lý do); đến hạn hôm nay; đến hạn trong 3 ngày tới; mới giao chưa bắt đầu.
+
 Quản lý, bốn tab:
 
 - **Tổng quan** (cập nhật 2026-11-12, theo yêu cầu của chủ dự án về giao diện bảng điều khiển). Có ô chọn quý. Từ trên xuống:
   - Bốn thẻ số liệu có màu, tính trên các việc của quý đang chọn và không chồng lấn nhau: *Đang thực hiện* (chưa nộp, chưa quá hạn), *Chờ duyệt*, *Quá hạn* (chưa nộp, hạn chót trước hôm nay), *Hoàn thành*.
   - Biểu đồ tròn tỉ lệ việc theo trạng thái, và biểu đồ thanh ngang số việc của từng nhân viên theo bốn nhóm trên.
-  - Lịch tháng thể hiện hạn chót: mỗi ô ngày liệt kê các việc đến hạn hôm đó kèm tên người nhận, màu theo bốn nhóm trên; ô hôm nay được tô nổi; có nút chuyển tháng. Lịch chỉ để xem, không sửa việc.
+  - Lịch tháng thể hiện hạn chót: mỗi ô ngày liệt kê các việc đến hạn hôm đó kèm tên người nhận, màu theo bốn nhóm trên; ô hôm nay được tô nổi; có nút chuyển tháng. Bấm vào một việc trên lịch mở hộp chi tiết (mô tả, trạng thái, ngày giao, hạn chót, trọng số, đánh giá, lý do trả lại, chứng minh); ngày có hơn ba việc gom thành "+n việc khác", bấm vào xem hết. Lịch chỉ để xem, không sửa việc.
   - Bảng KPI quý theo nhân viên và danh sách việc quá hạn.
 - **Giao việc:** chọn mẫu (tự điền tên, mô tả, trọng số) hoặc gõ tay; chọn người nhận và hạn chót.
 - **Chờ duyệt:** từng việc kèm chứng minh (link bấm được hoặc ảnh), chấm sao và duyệt, hoặc trả lại kèm lý do.

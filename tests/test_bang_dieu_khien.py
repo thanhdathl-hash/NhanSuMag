@@ -82,35 +82,12 @@ def test_stat_cards_html():
     assert html.count('class="gv-the ') == 4
 
 
-def test_calendar_html_co_du_ngay_va_viec():
-    lich = services.calendar_events(kho().tasks(), 2026, 11, D)
-    html = ui.calendar_html(2026, 11, lich, D, {"NV01": "Nguyễn An", "NV02": "Lê Bình"})
-    assert all(f'<span class="gv-so-ngay">{n}</span>' in html for n in (1, 15, 30))
-    assert html.count("<tr>") == 1 + 6                      # dòng thứ + 6 tuần của tháng 11/2026 (bắt đầu Chủ nhật)
-    assert "Làm lại quá hạn" in html and "Lê Bình" in html and "Tháng sau" not in html
-    assert f'gv-viec gv-{c.NHOM_QUA_HAN}' in html and f'gv-viec gv-{c.NHOM_CHO_DUYET}' in html
-    assert html.count("gv-hom-nay") == 1
-    assert "T2" in html and "CN" in html
+def test_month_weeks_bat_dau_thu_hai_va_phu_kin_thang():
+    tuan = ui.month_weeks(2026, 11)
+    assert len(tuan) == 6 and tuan[0][0].isoformat() == "2026-10-26" and tuan[-1][-1].isoformat() == "2026-12-06"
+    assert all(len(t) == 7 and t[0].weekday() == 0 for t in tuan)
 
 
-def test_calendar_html_khong_hien_ten_nguoi_khi_khong_truyen():
-    lich = services.calendar_events(kho().tasks(), 2026, 11, D)
-    assert "NV02" not in ui.calendar_html(2026, 11, lich, D) and "Lê Bình" not in ui.calendar_html(2026, 11, lich, D)
-
-
-def test_calendar_html_escape_chu_tu_sheet():
-    s = make_store(NHAN_SU, tasks=[viec(Ten_Viec='<script>alert(1)</script> & "x"', Han_Chot="2026-11-12")])
-    html = ui.calendar_html(2026, 11, services.calendar_events(s.tasks(), 2026, 11, D), D, {"NV01": "<b>An</b>"})
-    assert "<script>" not in html and "&lt;script&gt;" in html and "<b>An</b>" not in html
-
-
-def test_calendar_html_nhieu_viec_mot_ngay_thi_gon_lai():
-    s = make_store(NHAN_SU, tasks=[viec(ID_Viec=f"V-{i}", Ten_Viec=f"Việc số {i}", Han_Chot="2026-11-12") for i in range(6)])
-    html = ui.calendar_html(2026, 11, services.calendar_events(s.tasks(), 2026, 11, D), D)
-    assert html.count('class="gv-viec ') == ui.SO_VIEC_MOI_O and "+3 việc khác" in html
-    assert "Việc số 5" in html                               # tên việc bị ẩn vẫn đọc được khi rê chuột
-
-
-def test_calendar_html_thang_khong_co_viec():
-    html = ui.calendar_html(2026, 2, {}, D)
-    assert '<span class="gv-so-ngay">28</span>' in html and "gv-hom-nay" not in html
+def test_md_escape():
+    assert ui.md_escape("[bấm](http://x) **đậm** <b>") == "\\[bấm\\]\\(http://x\\) \\*\\*đậm\\*\\* \\<b\\>"
+    assert ui.md_escape("dòng 1\ndòng 2") == "dòng 1 dòng 2"

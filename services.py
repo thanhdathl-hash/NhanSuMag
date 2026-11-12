@@ -466,3 +466,44 @@ def shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
     """Lùi hoặc tiến một số tháng, trả (năm, tháng)."""
     so = year * 12 + (month - 1) + delta
     return so // 12, so % 12 + 1
+
+
+# --- Khối "Việc cần xử lý" ---
+
+def todo_groups(tasks: pd.DataFrame, user: dict, today: date) -> list[dict]:
+    """Những việc người dùng cần để ý ngay, tính trực tiếp từ bảng việc (đã lọc theo quyền).
+
+    Trả về danh sách nhóm không rỗng, theo thứ tự gấp dần: {"ma", "nhan", "viec": [dòng việc]}.
+    Với nhân viên, mỗi việc chỉ nằm ở một nhóm, nhóm gấp nhất.
+    """
+    nhom: dict[str, list[dict]] = {}
+    la_ql = _la_quan_ly(user)
+    for v in tasks.to_dict("records"):
+        tt = v[config.COL_TRANG_THAI]
+        han = _ngay_hoac_none(v[config.COL_HAN_CHOT])
+        chua_nop = tt in config.TT_CHUA_NOP
+        con = None if han is None else (han - today).days       # số ngày còn lại tới hạn
+        if la_ql and tt == config.TT_CHO_DUYET:
+            ma = config.CXL_CHO_DUYET
+        elif chua_nop and con is not None and con < 0:
+            ma = config.CXL_QUA_HAN
+        elif not la_ql and tt == config.TT_LAM_LAI:
+            ma = config.CXL_LAM_LAI
+        elif chua_nop and con == 0:
+            ma = config.CXL_HOM_NAY
+        elif not la_ql and chua_nop and con is not None and con <= config.SO_NGAY_SAP_DEN_HAN:
+            ma = config.CXL_SAP_DEN_HAN
+        elif not la_ql and tt == config.TT_MOI_GIAO:
+            ma = config.CXL_MOI_GIAO
+        else:
+            continue
+        nhom.setdefault(ma, []).append(v)
+    thu_tu = ([config.CXL_CHO_DUYET, config.CXL_QUA_HAN, config.CXL_HOM_NAY] if la_ql else
+              [config.CXL_QUA_HAN, config.CXL_LAM_LAI, config.CXL_HOM_NAY, config.CXL_SAP_DEN_HAN, config.CXL_MOI_GIAO])
+    return [{"ma": ma, "nhan": config.CXL_NHAN[ma],
+             "viec": sorted(nhom[ma], key=lambda v: (v[config.COL_HAN_CHOT], v[config.COL_TEN_VIEC]))}
+            for ma in thu_tu if ma in nhom]
+
+
+def todo_count(groups: list[dict]) -> int:
+    return sum(len(g["viec"]) for g in groups)
