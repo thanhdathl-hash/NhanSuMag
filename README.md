@@ -71,7 +71,13 @@ python3.12 -m venv .venv
 cp .streamlit/secrets.toml.example .streamlit/secrets.toml
 ```
 
-Mở `.streamlit/secrets.toml` và điền:
+Cách nhanh: để script tự tạo `secrets.toml` từ file khóa JSON (nó hỏi thêm mã file Sheet và token bot):
+
+```powershell
+.\.venv\Scripts\python scripts\tao_secrets.py "C:\đường\dẫn\file-khoa.json"
+```
+
+Hoặc tự làm: mở `.streamlit/secrets.toml` và điền:
 
 - `sheet_id`: đoạn nằm giữa `/d/` và `/edit` trong địa chỉ file Sheet.
 - `telegram_bot_token`: token từ BotFather.
@@ -167,6 +173,7 @@ auth.py         Xác thực
 services.py     Thao tác nghiệp vụ, kiểm tra quyền và trạng thái
 kpi.py          Công thức KPI
 notifier.py     Telegram
+scripts/        tao_secrets.py: tạo .streamlit/secrets.toml từ file khóa JSON
 gcal.py         Google Calendar: tạo và xóa sự kiện
 apps_script/    nhac_viec.gs
 tests/
