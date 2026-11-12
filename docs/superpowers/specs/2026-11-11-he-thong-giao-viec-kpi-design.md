@@ -14,10 +14,11 @@ Trong phạm vi:
 - Nhân viên đăng nhập, xem việc của mình, bấm "Bắt đầu" và "Báo cáo hoàn thành" kèm chứng minh.
 - Tính KPI quý theo công thức ở mục 7.
 - Thông báo Telegram ở bốn thời điểm (mục 8).
+- Đẩy việc được giao sang Google Calendar và lịch trình cá nhân (mục 12, thêm ngày 2026-11-12).
 
 Ngoài phạm vi của bản đầu:
 
-- Sửa hoặc xóa việc đã giao trong app. Khi cần, quản lý sửa thẳng trên Google Sheet.
+- Sửa hoặc xóa **việc đã giao** trong app. Khi cần, quản lý sửa thẳng trên Google Sheet. (Lịch trình cá nhân ở mục 12 thì thêm và xóa được trong app.)
 - Nhiều quản lý, nhiều phòng ban.
 - App di động riêng, chế độ offline.
 - Nhắc việc quá hạn. Bản đầu chỉ nhắc việc đến hạn trong ngày.
@@ -68,6 +69,8 @@ giao-viec-kpi/
 ├── services.py             # Các thao tác nghiệp vụ, kiểm tra quyền và trạng thái
 ├── kpi.py                  # Công thức KPI, hàm thuần, không I/O
 ├── notifier.py             # Telegram: gửi tin, gửi ảnh, tải ảnh
+├── gcal.py                 # Google Calendar: tạo và xóa sự kiện (mục 12)
+├── ui.py                   # Thẻ số liệu, lưới lịch, biểu đồ
 ├── apps_script/nhac_viec.gs  # Nhắc việc 8h
 ├── tests/
 ├── requirements.txt
@@ -102,6 +105,7 @@ Cột đánh dấu (+) là cột thêm so với mô tả ban đầu của chủ 
 | `Telegram_ChatID` | Lưu dạng văn bản |
 | `Role` | `QuanLy` hoặc `NhanVien`. Có đúng một dòng `QuanLy` |
 | `KPI_Quy` | Theo D1-A: app ghi KPI quý hiện tại vào đây sau mỗi lần duyệt |
+| `Lich_Google` (+) | Mã lịch Google "Công việc" của người đó (mục 12). Để trống thì không đẩy |
 
 ### Thu_Vien_Mau
 
@@ -270,7 +274,68 @@ Toàn bộ giao diện bằng tiếng Việt.
 
 Kiểm thử tự động không chạm vào Sheet thật và không gọi Telegram thật. Bước kiểm tra cuối với Sheet và bot thật do chủ dự án làm theo README.
 
-## 12. Tài liệu tham khảo
+## 12. Google Calendar và lịch trình cá nhân
+
+Thêm ngày 2026-11-12 theo yêu cầu của chủ dự án. Bốn lựa chọn chủ dự án đã chốt: app tự động đẩy khi giao việc; lịch trình cá nhân chỉ chính người đó xem trong app; có lặp hằng ngày và hằng tuần; mỗi mục có ngày, giờ bắt đầu, giờ kết thúc, nội dung.
+
+### 12.1 Đẩy sang Google Calendar
+
+Cài đặt một lần cho mỗi người, do người đó tự làm:
+
+1. Tạo một lịch riêng trong Google Calendar (gợi ý tên "Công việc").
+2. Chia sẻ lịch đó cho email của service account với quyền "Thay đổi sự kiện".
+3. Đưa mã lịch cho quản lý để dán vào cột `Lich_Google` của bảng nhân sự.
+
+Dùng lịch riêng thay vì lịch chính vì quyền "Thay đổi sự kiện" cho phép đọc mọi sự kiện của lịch được chia sẻ; với lịch riêng, app chỉ thấy những gì chính nó tạo.
+
+Cách chạy:
+
+- Module `gcal.py` gọi Google Calendar API bằng chính service account của app, phạm vi `calendar.events`. Không thêm thư viện: dùng `google-auth` đã có. Mỗi lần gọi có giới hạn 10 giây và không ném lỗi ra ngoài, giống `notifier.py`.
+- Khi quản lý tạo việc: ghi Sheet, gửi Telegram, rồi tạo một sự kiện cả ngày vào ngày `Han_Chot` trên lịch của người nhận. Người chưa có `Lich_Google` thì bỏ qua. Đẩy lỗi không hủy thao tác; giao diện báo "đã lưu nhưng chưa đẩy được lên Google Calendar".
+- Mã sự kiện được suy ra từ `ID_Viec` (và từ `ID_Lich` với mục cá nhân), nên đẩy lại không tạo sự kiện trùng và không cần cột lưu mã sự kiện.
+- Giờ nhắc do mỗi người tự đặt một lần trong phần cài đặt thông báo của lịch "Công việc", vì Google lưu cài đặt nhắc theo từng người xem lịch. App không đặt được giờ nhắc thay họ.
+- Sửa `Han_Chot` trên Sheet sau khi giao thì sự kiện cũ không tự cập nhật. Duyệt hay trả lại không đổi sự kiện.
+
+### 12.2 Lịch trình cá nhân
+
+Dành cho việc ngoài việc được giao: việc nhỏ, sinh hoạt hằng ngày. Cả quản lý lẫn nhân viên đều có.
+
+Bảng mới `Lich_Ca_Nhan`:
+
+| Cột | Ghi chú |
+|---|---|
+| `ID_Lich` | `L-` cộng 8 ký tự hex ngẫu nhiên |
+| `ID_NV` | Người tạo, cũng là người duy nhất thấy mục này trong app |
+| `Noi_Dung` | Tối đa 200 ký tự |
+| `Ngay` | `YYYY-MM-DD`. Với mục lặp, đây là lần đầu tiên |
+| `Gio_Bat_Dau` | `HH:MM`, để trống nếu là việc cả ngày |
+| `Gio_Ket_Thuc` | `HH:MM`, để trống được. Có giờ kết thúc thì phải có giờ bắt đầu và phải sau giờ bắt đầu |
+| `Lap` | `Không lặp`, `Hằng ngày` hoặc `Hằng tuần` |
+| `Lap_Den` | `YYYY-MM-DD`, ngày cuối của chuỗi lặp. Bắt buộc khi có lặp, không quá 366 ngày sau `Ngay` |
+| `Da_Xong` | Các ngày đã đánh dấu xong, cách nhau bằng dấu phẩy |
+
+Thao tác, đều đi qua `services.py` và đều kiểm tra người gọi là chủ của mục:
+
+| Thao tác | Ai | Điều kiện | Việc kèm theo |
+|---|---|---|---|
+| Thêm | Người dùng đã đăng nhập | Nội dung không trống; ngày hợp lệ; giờ và lặp theo bảng trên | Đẩy sang Google Calendar nếu người đó có `Lich_Google` (kèm quy tắc lặp) |
+| Đánh dấu xong / bỏ đánh dấu | Chủ của mục | Ngày phải là một lần xảy ra của mục | Không đồng bộ sang Google |
+| Xóa | Chủ của mục | Mục lặp thì xóa cả chuỗi | Xóa sự kiện bên Google; xóa bên Google lỗi không hủy thao tác |
+
+Không có chức năng sửa: muốn đổi thì xóa rồi thêm lại.
+
+Hiển thị:
+
+- Mục cá nhân hiện trên cùng lưới lịch với việc được giao, màu tím, có giờ đứng trước nội dung; lần đã xong bị gạch ngang. Mỗi ô ngày hiện tối đa ba mục, việc được giao xếp trước; phần còn lại gom vào nút "+n mục khác".
+- Bấm vào một mục cá nhân mở hộp chi tiết có nút "Đánh dấu xong" và "Xóa".
+- Ô "Thêm lịch trình cá nhân" nằm ngay dưới lịch.
+- Mục cá nhân không tính vào thẻ số liệu, KPI, biểu đồ hay khối "Việc cần xử lý", và không có nhắc qua Telegram.
+
+Riêng tư: việc lọc theo chủ diễn ra trước khi dữ liệu ra giao diện, nên trong app quản lý không thấy lịch trình cá nhân của nhân viên. Dữ liệu vẫn nằm trong file Sheet, nên ai mở được file (quản lý) đọc được. Rủi ro này được chấp nhận và ghi trong README.
+
+Kiểm thử: `gcal.py` được test với một phiên HTTP giả; `services.py` và giao diện dùng lịch Google giả trong bộ nhớ. Test không gọi Google thật. Hành vi với Google Calendar thật (chia sẻ lịch cho service account, thông báo) do chủ dự án kiểm tra theo README.
+
+## 13. Tài liệu tham khảo
 
 - Streamlit Community Cloud, giới hạn và chế độ ngủ: https://docs.streamlit.io/streamlit-community-cloud/manage-your-app
 - AppSheet, phạm vi miễn phí của prototype: https://discuss.google.dev/t/appsheet-pricing/159540
