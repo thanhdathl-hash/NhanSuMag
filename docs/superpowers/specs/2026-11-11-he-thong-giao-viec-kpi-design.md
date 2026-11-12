@@ -228,15 +228,22 @@ Màn hình đăng nhập: ô ID hoặc SĐT, ô PIN.
 
 Quản lý, bốn tab:
 
-- **Tổng quan:** số việc theo trạng thái, bảng và biểu đồ cột KPI quý theo nhân viên, danh sách việc quá hạn. Có ô chọn quý.
+- **Tổng quan** (cập nhật 2026-11-12, theo yêu cầu của chủ dự án về giao diện bảng điều khiển). Có ô chọn quý. Từ trên xuống:
+  - Bốn thẻ số liệu có màu, tính trên các việc của quý đang chọn và không chồng lấn nhau: *Đang thực hiện* (chưa nộp, chưa quá hạn), *Chờ duyệt*, *Quá hạn* (chưa nộp, hạn chót trước hôm nay), *Hoàn thành*.
+  - Biểu đồ tròn tỉ lệ việc theo trạng thái, và biểu đồ thanh ngang số việc của từng nhân viên theo bốn nhóm trên.
+  - Lịch tháng thể hiện hạn chót: mỗi ô ngày liệt kê các việc đến hạn hôm đó kèm tên người nhận, màu theo bốn nhóm trên; ô hôm nay được tô nổi; có nút chuyển tháng. Lịch chỉ để xem, không sửa việc.
+  - Bảng KPI quý theo nhân viên và danh sách việc quá hạn.
 - **Giao việc:** chọn mẫu (tự điền tên, mô tả, trọng số) hoặc gõ tay; chọn người nhận và hạn chót.
 - **Chờ duyệt:** từng việc kèm chứng minh (link bấm được hoặc ảnh), chấm sao và duyệt, hoặc trả lại kèm lý do.
 - **Tất cả công việc:** bảng lọc theo nhân viên, trạng thái, quý.
 
 Nhân viên, hai tab:
 
-- **Việc của tôi:** nhóm theo trạng thái. Việc `Làm lại` hiện lý do của quản lý. Nút "Bắt đầu"; form "Báo cáo hoàn thành" với hai lựa chọn dán link hoặc tải ảnh.
+- Phía trên hai tab có bốn thẻ số liệu như của quản lý, tính trên việc của chính nhân viên.
+- **Việc của tôi:** lịch tháng hạn chót các việc của mình, rồi danh sách việc nhóm theo trạng thái. Việc `Làm lại` hiện lý do của quản lý. Nút "Bắt đầu"; form "Báo cáo hoàn thành" với hai lựa chọn dán link hoặc tải ảnh.
 - **KPI của tôi:** KPI quý hiện tại và số việc đã hoàn thành.
+
+Thẻ số liệu và lịch do app tự dựng bằng HTML (mọi chữ lấy từ Sheet đều được escape), biểu đồ dùng Altair đi kèm Streamlit; không thêm thư viện ngoài. Không làm: thanh điều hướng biểu tượng, ô tìm kiếm, chuông thông báo, nhãn tăng giảm phần trăm (chưa có dữ liệu lịch sử), kéo thả trên lịch.
 
 Toàn bộ giao diện bằng tiếng Việt.
 

@@ -78,3 +78,9 @@ MSG_LOI_SHEET = "Không kết nối được Google Sheets. Dữ liệu bạn nh
 
 # --- Tên cột của bảng kết quả KPI do services.kpi_table trả về ---
 KQ_KPI, KQ_HOAN_THANH, KQ_TONG_VIEC = "KPI", "Hoan_Thanh", "Tong_Viec"
+
+# --- Nhóm việc trên bảng điều khiển: bốn nhóm không chồng lấn, dùng cho thẻ số liệu, biểu đồ và lịch ---
+NHOM_DANG_LAM, NHOM_CHO_DUYET, NHOM_QUA_HAN, NHOM_HOAN_THANH = "dang_lam", "cho_duyet", "qua_han", "hoan_thanh"
+NHOM_VIEC = [NHOM_DANG_LAM, NHOM_CHO_DUYET, NHOM_QUA_HAN, NHOM_HOAN_THANH]
+NHOM_NHAN = {NHOM_DANG_LAM: "Đang thực hiện", NHOM_CHO_DUYET: TT_CHO_DUYET,
+             NHOM_QUA_HAN: "Quá hạn", NHOM_HOAN_THANH: TT_HOAN_THANH}

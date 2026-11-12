@@ -132,6 +132,7 @@ Phần này chưa được kiểm thử tự động. Làm lần lượt và đ�
 ```
 app.py          Giao diện Streamlit
 demo.py         Chạy thử với dữ liệu mẫu trong bộ nhớ (không dùng để triển khai)
+ui.py           Thẻ số liệu, lịch hạn chót và biểu đồ của bảng điều khiển
 config.py       Tên bảng, tên cột, trạng thái, hệ số KPI, múi giờ
 db.py           Đọc và ghi Google Sheets
 auth.py         Xác thực

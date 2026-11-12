@@ -12,3 +12,10 @@ gatherUsageStats = false
 [global]
 # Ô trọng số và hạn chót có giá trị mặc định, đồng thời được điền lại khi chọn mẫu. Đây là chủ ý.
 disableWidgetStateDuplicationWarning = true
+
+[theme]
+base = "light"
+primaryColor = "#5b5fe9"
+backgroundColor = "#f4f6fb"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#1f2937"

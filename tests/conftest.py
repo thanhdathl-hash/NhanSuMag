@@ -128,4 +128,10 @@ def dang_nhap(at, ident, pin):
 def chu_tren_trang(at):
     """Gom mọi chữ hiển thị trên trang để dò nội dung."""
     nhom = ["markdown", "caption", "error", "warning", "success", "info", "subheader", "header", "title", "code"]
-    return " | ".join(str(e.value) for n in nhom for e in getattr(at, n))
+    chu = [str(e.value) for n in nhom for e in getattr(at, n)]
+    return " | ".join(chu + [h.proto.body for h in at.get("html")])
+
+
+def html_tren_trang(at):
+    """Toàn bộ HTML do app tự dựng (thẻ số liệu, lịch)."""
+    return "".join(h.proto.body for h in at.get("html"))

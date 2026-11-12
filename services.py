@@ -409,3 +409,60 @@ def quarters(tasks: pd.DataFrame, today: date) -> list[str]:
 
 def current_quarter(today: date) -> str:
     return kpi.quarter_of(today)
+
+
+# --- Bảng điều khiển: bốn nhóm việc, khối lượng theo nhân viên, lịch hạn chót ---
+
+def task_group(trang_thai: str, han_chot: str, today: date) -> str | None:
+    """Xếp một việc vào đúng một nhóm của bảng điều khiển. None nếu trạng thái không hợp lệ.
+
+    Quá hạn chỉ tính việc chưa nộp có hạn chót trước hôm nay; hạn chót hỏng thì không kết luận quá hạn.
+    """
+    if trang_thai == config.TT_HOAN_THANH:
+        return config.NHOM_HOAN_THANH
+    if trang_thai == config.TT_CHO_DUYET:
+        return config.NHOM_CHO_DUYET
+    if trang_thai in config.TT_CHUA_NOP:
+        han = _ngay_hoac_none(han_chot)
+        return config.NHOM_QUA_HAN if han is not None and han < today else config.NHOM_DANG_LAM
+    return None
+
+
+def _nhom_cua_bang(tasks: pd.DataFrame, today: date) -> list:
+    return [task_group(tt, han, today)
+            for tt, han in zip(tasks[config.COL_TRANG_THAI], tasks[config.COL_HAN_CHOT])]
+
+
+def dashboard_counts(tasks: pd.DataFrame, today: date) -> dict[str, int]:
+    """Số việc theo bốn nhóm, đủ khóa theo thứ tự config.NHOM_VIEC."""
+    nhom = _nhom_cua_bang(tasks, today)
+    return {n: nhom.count(n) for n in config.NHOM_VIEC}
+
+
+def workload_table(tasks: pd.DataFrame, employees: pd.DataFrame, today: date) -> pd.DataFrame:
+    """Số việc của từng nhân viên theo bốn nhóm. Cột: ID_NV, Ten, rồi từng nhóm."""
+    dong = []
+    for _, nv in employees[employees[config.COL_ROLE] == config.ROLE_NHAN_VIEN].iterrows():
+        dem = dashboard_counts(tasks[tasks[config.COL_NGUOI_NHAN] == nv[config.COL_ID_NV]], today)
+        dong.append([nv[config.COL_ID_NV], nv[config.COL_TEN], *dem.values()])
+    return pd.DataFrame(dong, columns=[config.COL_ID_NV, config.COL_TEN, *config.NHOM_VIEC])
+
+
+def calendar_events(tasks: pd.DataFrame, year: int, month: int, today: date) -> dict[date, list[dict]]:
+    """Các việc có hạn chót trong tháng, gom theo ngày. Mỗi việc là dòng việc kèm khóa "nhom"."""
+    lich: dict[date, list[dict]] = {}
+    for v in tasks.to_dict("records"):
+        han = _ngay_hoac_none(v[config.COL_HAN_CHOT])
+        nhom = task_group(v[config.COL_TRANG_THAI], v[config.COL_HAN_CHOT], today)
+        if han is None or nhom is None or (han.year, han.month) != (year, month):
+            continue
+        lich.setdefault(han, []).append({**v, "nhom": nhom})
+    for ds in lich.values():
+        ds.sort(key=lambda e: e[config.COL_TEN_VIEC])
+    return lich
+
+
+def shift_month(year: int, month: int, delta: int) -> tuple[int, int]:
+    """Lùi hoặc tiến một số tháng, trả (năm, tháng)."""
+    so = year * 12 + (month - 1) + delta
+    return so // 12, so % 12 + 1

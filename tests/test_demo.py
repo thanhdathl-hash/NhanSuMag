@@ -8,7 +8,7 @@ import config as c
 import db
 import notifier
 import services
-from tests.conftest import chu_tren_trang, dang_nhap
+from tests.conftest import chu_tren_trang, dang_nhap, html_tren_trang
 
 DEMO = str(pathlib.Path(__file__).resolve().parent.parent / "demo.py")
 
@@ -41,7 +41,7 @@ def test_quan_ly_thay_du_lieu_mau(mo_demo):
     at = dang_nhap(mo_demo(), "QL01", "1111")
     assert not at.exception and len(at.tabs) == 4
     assert len(at.warning) == 1 and "chạy thử" in at.warning[0].value.lower()   # dữ liệu mẫu sạch, chỉ có băng báo chạy thử
-    assert sum(int(m.value) for m in at.metric) >= 6                            # có việc ở nhiều trạng thái
+    assert html_tren_trang(at).count('class="gv-viec ') >= 6                     # lịch có việc ở nhiều ngày
     assert len(at.get("image")) == 1                                             # một việc chờ duyệt có ảnh chứng minh
     assert any(k.startswith("duyet_") for k in (b.key or "" for b in at.button))
 

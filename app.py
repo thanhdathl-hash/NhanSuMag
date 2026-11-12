@@ -2,6 +2,7 @@
 import re
 from datetime import datetime, timezone
 
+import pandas as pd
 import streamlit as st
 
 import auth
@@ -9,6 +10,7 @@ import config
 import db
 import notifier
 import services
+import ui
 
 st.set_page_config(page_title="Giao việc và KPI", page_icon="📋", layout="wide")
 
@@ -144,6 +146,34 @@ def the_viec(v: dict) -> None:
         st.write(v[config.COL_MO_TA])
 
 
+# --- Lịch hạn chót (dùng chung cho quản lý và nhân viên) ---
+
+def _thang_dang_xem() -> tuple[int, int]:
+    hom_nay = services.hom_nay()
+    return st.session_state.setdefault("lich_thang", (hom_nay.year, hom_nay.month))
+
+
+def cb_doi_thang(delta: int) -> None:
+    st.session_state["lich_thang"] = services.shift_month(*_thang_dang_xem(), delta)
+
+
+def cb_ve_thang_nay() -> None:
+    st.session_state.pop("lich_thang", None)
+
+
+def khoi_lich(tasks, ten_theo_id: dict | None = None) -> None:
+    """Lịch tháng thể hiện hạn chót. Truyền ten_theo_id để ghi tên người nhận cạnh tên việc."""
+    hom_nay = services.hom_nay()
+    nam, thang = _thang_dang_xem()
+    tieu_de, truoc, nay, sau = st.columns([6, 1, 1.4, 1], vertical_alignment="bottom")
+    tieu_de.subheader(f"Lịch hạn chót · Tháng {thang}/{nam}")
+    truoc.button("◀", key="lich_truoc", help="Tháng trước", on_click=cb_doi_thang, args=(-1,), width="stretch")
+    nay.button("Hôm nay", key="lich_hom_nay", on_click=cb_ve_thang_nay, width="stretch")
+    sau.button("▶", key="lich_sau", help="Tháng sau", on_click=cb_doi_thang, args=(1,), width="stretch")
+    st.html(ui.calendar_html(nam, thang, services.calendar_events(tasks, nam, thang, hom_nay), hom_nay, ten_theo_id))
+    st.html(ui.legend_html())
+
+
 # --- Màn hình Nhân viên ---
 
 def cb_bat_dau(id_viec: str) -> None:
@@ -165,6 +195,7 @@ def tab_viec_cua_toi(viec_cua_toi) -> None:
     if viec_cua_toi.empty:
         st.info("Bạn chưa có việc nào.")
         return
+    khoi_lich(viec_cua_toi)
     for trang_thai in THU_TU_NHOM:
         nhom = viec_cua_toi[viec_cua_toi[config.COL_TRANG_THAI] == trang_thai]
         if nhom.empty:
@@ -172,7 +203,7 @@ def tab_viec_cua_toi(viec_cua_toi) -> None:
         st.subheader(f"{trang_thai} ({len(nhom)})")
         for v in nhom.to_dict("records"):
             id_viec = v[config.COL_ID_VIEC]
-            with st.container(border=True):
+            with st.container(border=True, key=f"khoi_viec_{id_viec}"):
                 the_viec(v)
                 if trang_thai == config.TT_LAM_LAI and v[config.COL_GHI_CHU_QL]:
                     st.warning(f"Lý do trả lại: {v[config.COL_GHI_CHU_QL]}")
@@ -207,6 +238,7 @@ def tab_kpi_cua_toi(viec_cua_toi, user: dict) -> None:
 
 
 def man_hinh_nhan_vien(user: dict, viec_thay_duoc) -> None:
+    st.html(ui.stat_cards_html(services.dashboard_counts(viec_thay_duoc, services.hom_nay())))
     tab_viec, tab_kpi = st.tabs(["Việc của tôi", "KPI của tôi"])
     with tab_viec:
         tab_viec_cua_toi(viec_thay_duoc)
@@ -333,7 +365,7 @@ def tab_cho_duyet(tasks, nhan_su) -> None:
     ten = ten_theo_id(nhan_su)
     for v in cho.to_dict("records"):
         id_viec = v[config.COL_ID_VIEC]
-        with st.container(border=True):
+        with st.container(border=True, key=f"khoi_duyet_{id_viec}"):
             the_viec(v)
             st.caption(f"Người làm: {ten.get(v[config.COL_NGUOI_NHAN], v[config.COL_NGUOI_NHAN])} · "
                        f"Báo cáo ngày: {v[config.COL_NGAY_HOAN_THANH]}")
@@ -354,9 +386,23 @@ def tab_tong_quan(tasks, nhan_su) -> None:
     quy = st.selectbox("Quý", ds_quy, index=ds_quy.index(services.current_quarter(hom_nay)), key="tq_quy")
     trong_quy = tasks[tasks[config.COL_QUY] == quy]
 
-    dem = services.status_counts(trong_quy)
-    for cot, trang_thai in zip(st.columns(len(config.TRANG_THAI)), config.TRANG_THAI):
-        cot.metric(trang_thai, str(dem[trang_thai]))
+    st.html(ui.stat_cards_html(services.dashboard_counts(trong_quy, hom_nay)))
+
+    trai, phai = st.columns(2)
+    with trai.container(border=True, key="khoi_ti_le"):
+        st.markdown(f"**Tỉ lệ công việc quý {quy}**")
+        if trong_quy.empty:
+            st.caption("Chưa có việc trong quý này.")
+        else:
+            st.altair_chart(ui.status_donut(services.status_counts(trong_quy)), width="stretch")
+    with phai.container(border=True, key="khoi_theo_nhan_vien"):
+        st.markdown("**Công việc theo nhân viên**")
+        if trong_quy.empty:
+            st.caption("Chưa có việc trong quý này.")
+        else:
+            st.altair_chart(ui.workload_bars(services.workload_table(trong_quy, nhan_su, hom_nay)), width="stretch")
+
+    khoi_lich(tasks, ten_theo_id(nhan_su))
 
     st.subheader(f"KPI quý {quy}")
     bang = services.kpi_table(tasks, nhan_su, quy)
@@ -367,15 +413,21 @@ def tab_tong_quan(tasks, nhan_su) -> None:
     st.caption("Việc chưa đến hạn vẫn nằm trong mục tiêu quý, nên KPI giữa quý thấp và tăng dần khi việc được duyệt.")
     co_kpi = bang[bang[config.KQ_KPI].notna()]
     if not co_kpi.empty:
-        st.bar_chart(co_kpi.set_index(config.COL_TEN)[config.KQ_KPI].astype(float), y_label="KPI (%)")
+        st.bar_chart(co_kpi.set_index(config.COL_TEN)[config.KQ_KPI].astype(float), x_label="KPI (%)",
+                     horizontal=True, color="#5b5fe9", height=60 + 36 * len(co_kpi))
 
     st.subheader("Việc quá hạn chưa nộp")
     qua_han = services.overdue_tasks(tasks, hom_nay)
     if qua_han.empty:
         st.info("Không có việc quá hạn.")
     else:
-        st.dataframe(qua_han[[config.COL_TEN_VIEC, config.COL_NGUOI_NHAN, config.COL_HAN_CHOT, config.COL_TRANG_THAI]],
-                     hide_index=True, width="stretch")
+        ten = ten_theo_id(nhan_su)
+        st.dataframe(pd.DataFrame({
+            "Việc": qua_han[config.COL_TEN_VIEC],
+            "Người nhận": [ten.get(i, i) for i in qua_han[config.COL_NGUOI_NHAN]],
+            "Hạn chót": qua_han[config.COL_HAN_CHOT],
+            "Trạng thái": qua_han[config.COL_TRANG_THAI],
+        }), hide_index=True, width="stretch")
 
 
 def tab_tat_ca(tasks, nhan_su) -> None:
@@ -433,6 +485,7 @@ def main() -> None:
         st.button("Làm mới dữ liệu", key="refresh", on_click=cb_lam_moi)
         st.button("Đăng xuất", key="logout", on_click=cb_dang_xuat)
 
+    st.html(ui.CSS)
     hien_flash()
     try:
         viec_tho = load_tasks()

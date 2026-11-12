@@ -4,7 +4,7 @@ import re
 
 import config
 
-MODULES = ["kpi.py", "db.py", "auth.py", "notifier.py", "services.py", "app.py"]
+MODULES = ["kpi.py", "db.py", "auth.py", "notifier.py", "services.py", "app.py", "ui.py", "demo.py"]
 CAM = config.TRANG_THAI + config.VIEC_COLS + config.NHAN_SU_COLS + config.MAU_COLS + list(config.SHEET_COLS)
 
 

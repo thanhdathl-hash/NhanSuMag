@@ -2,7 +2,7 @@ import io
 from datetime import date
 
 import config as c
-from tests.conftest import chu_tren_trang, dang_nhap, mo_app, viec, viec_cho_duyet, viec_vi_du_spec
+from tests.conftest import html_tren_trang, chu_tren_trang, dang_nhap, mo_app, viec, viec_cho_duyet, viec_vi_du_spec
 
 ID = "V-00000001"
 MAU = [{c.COL_ID_MAU: "M01", c.COL_TEN_VIEC: "Báo cáo tuần", c.COL_MO_TA: "Gửi trước 17h thứ Sáu", c.COL_TRONG_SO_DIEM: 2},
@@ -188,8 +188,10 @@ def test_tong_quan(app_env):
     app_env(tasks=viec_vi_du_spec(da_duyet=True) + [qua_han])
     at = vao_ql()
     assert at.selectbox(key="tq_quy").value == "2026-Q4"
-    assert {m.label: m.value for m in at.metric} == {
-        c.TT_MOI_GIAO: "1", c.TT_DANG_LAM: "1", c.TT_CHO_DUYET: "0", c.TT_HOAN_THANH: "3", c.TT_LAM_LAI: "0"}
+    the = html_tren_trang(at)
+    for nhan, so in [("Đang thực hiện", 1), (c.TT_CHO_DUYET, 0), ("Quá hạn", 1), (c.TT_HOAN_THANH, 3)]:
+        assert f'<div class="gv-nhan">{nhan}</div><div class="gv-so">{so}</div>' in the
+    assert len(at.metric) == 0
     bang_kpi = at.dataframe[0].value.astype(str)
     dong_nv1 = " ".join(bang_kpi.iloc[0])
     assert "Nguyễn An" in dong_nv1 and "49.57" in dong_nv1 and "3/4" in dong_nv1
