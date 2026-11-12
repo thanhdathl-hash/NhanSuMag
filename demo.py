@@ -82,7 +82,7 @@ def _viec_mau(hom_nay):
 
     dong, so = [], 0
 
-    def them(ten, nguoi, trong_so, han, trang_thai, mo_ta="", nop=None, sao=None, link="", ghi_chu=""):
+    def them(ten, nguoi, trong_so, han, trang_thai, mo_ta="", nop=None, sao=None, anh="", ghi_chu="", ghi_chu_nv=""):
         nonlocal so
         so += 1
         han_chot = hom_nay + timedelta(days=han)
@@ -92,22 +92,21 @@ def _viec_mau(hom_nay):
         dong.append({
             c.COL_ID_VIEC: f"V-demo{so:04d}", c.COL_TEN_VIEC: ten, c.COL_MO_TA: mo_ta, c.COL_NGUOI_NHAN: nguoi,
             c.COL_TRONG_SO: str(trong_so), c.COL_NGAY_GIAO: ngay(han - 7), c.COL_HAN_CHOT: han_chot.isoformat(),
-            c.COL_TRANG_THAI: trang_thai, c.COL_LINK: link,
+            c.COL_TRANG_THAI: trang_thai, c.COL_LINK: anh, c.COL_GHI_CHU_NV: ghi_chu_nv,
             c.COL_NGAY_HOAN_THANH: "" if nop is None else ngay(nop),
             c.COL_SAO: "" if sao is None else str(sao), c.COL_DIEM: diem, c.COL_GHI_CHU_QL: ghi_chu,
             c.COL_THANG: kpi.month_of(han_chot), c.COL_QUY: kpi.quarter_of(han_chot),
         })
 
-    vi_du = "https://example.com"
-    them("Báo cáo doanh số tuần", "NV01", 2, -10, c.TT_HOAN_THANH, nop=-10, sao=5, link=f"{vi_du}/bao-cao")
-    them("Kiểm kê kho", "NV01", 4, -6, c.TT_HOAN_THANH, nop=-4, sao=4, link=f"{vi_du}/kiem-ke")
-    them("Sửa báo giá khách A", "NV01", 3, 2, c.TT_LAM_LAI, nop=-1, link=f"{vi_du}/bao-gia",
+    them("Báo cáo doanh số tuần", "NV01", 2, -10, c.TT_HOAN_THANH, nop=-10, sao=5, ghi_chu_nv="Đã gửi file tổng hợp qua email")
+    them("Kiểm kê kho", "NV01", 4, -6, c.TT_HOAN_THANH, nop=-4, sao=4, ghi_chu_nv="Lệch 2 thùng nước suối, đã ghi sổ")
+    them("Sửa báo giá khách A", "NV01", 3, 2, c.TT_LAM_LAI, nop=-1, ghi_chu_nv="Đã sửa đơn giá",
          ghi_chu="Thiếu số liệu tháng trước")
     them("Gọi lại 10 khách hàng cũ", "NV01", 2, 5, c.TT_MOI_GIAO, mo_ta="Ghi kết quả từng cuộc gọi vào file chung")
-    them("Chụp ảnh trưng bày kệ hàng", "NV02", 3, 1, c.TT_CHO_DUYET, nop=0, link=c.TG_PREFIX + ANH_MAU)
+    them("Chụp ảnh trưng bày kệ hàng", "NV02", 3, 1, c.TT_CHO_DUYET, nop=0, anh=c.TG_PREFIX + ANH_MAU, ghi_chu_nv="Đã xếp lại kệ theo mẫu")
     them("Lập bảng giá mới", "NV02", 3, -3, c.TT_DANG_LAM)
-    them("Soạn hợp đồng mẫu", "NV03", 5, -1, c.TT_CHO_DUYET, nop=0, link=f"{vi_du}/hop-dong")
-    them("Đăng bài fanpage", "NV03", 1, -2, c.TT_HOAN_THANH, nop=-2, sao=3, link=f"{vi_du}/bai-dang")
+    them("Soạn hợp đồng mẫu", "NV03", 5, -1, c.TT_CHO_DUYET, nop=0)
+    them("Đăng bài fanpage", "NV03", 1, -2, c.TT_HOAN_THANH, nop=-2, sao=3)
     them("Đối chiếu công nợ", "NV04", 4, 7, c.TT_DANG_LAM)
     return dong
 

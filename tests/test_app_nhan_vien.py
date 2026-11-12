@@ -41,12 +41,12 @@ def test_nhan_vien_chi_thay_viec_cua_minh(app_env):
     assert [t.label for t in at.tabs] == ["Việc của tôi", "KPI của tôi"]
 
 
-def test_bat_dau_roi_bao_cao_bang_link(app_env):
+def test_bat_dau_roi_bao_cao_khong_can_chung_minh(app_env):
     store, notifier = app_env(tasks=HAI_VIEC)
     at = dang_nhap(mo_app(), "NV01", "1234")
     at.button(key=f"start_{ID}").click().run()
     assert store.get_task(ID)[c.COL_TRANG_THAI] == c.TT_DANG_LAM
-    at.text_input(key=f"link_{ID}").set_value("https://a.vn")
+    assert not [x for x in at.text_input if (x.key or "").startswith("link_")]      # không còn ô dán link
     at.button(key=f"nop_{ID}").click().run()
     t = store.get_task(ID)
     assert (t[c.COL_TRANG_THAI], t[c.COL_NGAY_HOAN_THANH]) == (c.TT_CHO_DUYET, "2026-11-11")
@@ -54,28 +54,28 @@ def test_bat_dau_roi_bao_cao_bang_link(app_env):
     assert notifier.sent[0][0] == "100"
 
 
-def test_bao_cao_thieu_chung_minh_bao_loi(app_env):
-    store, _ = app_env(tasks=[viec(Trang_Thai=c.TT_DANG_LAM)])
+def test_bao_cao_kem_ghi_chu_va_quan_ly_thay_ghi_chu(app_env):
+    store, notifier = app_env(tasks=[viec(Trang_Thai=c.TT_DANG_LAM)])
     at = dang_nhap(mo_app(), "NV01", "1234")
+    at.text_area(key=f"ghichu_{ID}").set_value("Đã gọi 10 khách")
     at.button(key=f"nop_{ID}").click().run()
-    assert len(at.error) == 1 and "chứng minh" in at.error[0].value
-    assert store.get_task(ID)[c.COL_TRANG_THAI] == c.TT_DANG_LAM
+    assert store.get_task(ID)[c.COL_GHI_CHU_NV] == "Đã gọi 10 khách" and "Đã gọi 10 khách" in notifier.sent[0][1]
+    at.button(key="logout").click().run()
+    dang_nhap(at, "QL01", "1111")
+    assert "Đã gọi 10 khách" in chu_tren_trang(at)
 
 
-def test_link_sai_bao_loi_va_giu_o_nhap(app_env):
-    store, _ = app_env(tasks=[viec(Trang_Thai=c.TT_DANG_LAM)])
+def test_o_ghi_chu_gioi_han_do_dai(app_env):
+    # Ô nhập tự chặn ở GHI_CHU_NV_TOI_DA ký tự; services.submit_task vẫn kiểm tra lại (test_services_nhan_vien)
+    app_env(tasks=[viec(Trang_Thai=c.TT_DANG_LAM)])
     at = dang_nhap(mo_app(), "NV01", "1234")
-    at.text_input(key=f"link_{ID}").set_value("drive.google.com/x")
-    at.button(key=f"nop_{ID}").click().run()
-    assert len(at.error) == 1 and at.text_input(key=f"link_{ID}").value == "drive.google.com/x"
-    assert store.get_task(ID)[c.COL_TRANG_THAI] == c.TT_DANG_LAM
+    assert at.text_area(key=f"ghichu_{ID}").proto.max_chars == c.GHI_CHU_NV_TOI_DA
 
 
 def test_telegram_loi_hien_canh_bao(app_env):
     store, notifier = app_env(tasks=[viec(Trang_Thai=c.TT_DANG_LAM)])
     notifier.ok = False
     at = dang_nhap(mo_app(), "NV01", "1234")
-    at.text_input(key=f"link_{ID}").set_value("https://a.vn")
     at.button(key=f"nop_{ID}").click().run()
     assert at.warning[0].value == c.MSG_DA_LUU_CHUA_GUI
     assert store.get_task(ID)[c.COL_TRANG_THAI] == c.TT_CHO_DUYET

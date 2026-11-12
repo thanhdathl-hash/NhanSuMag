@@ -13,7 +13,7 @@ def test_cot_bang_viec_dung_thu_tu_spec():
     assert config.VIEC_COLS == [
         "ID_Viec", "Ten_Viec", "Mo_Ta", "Nguoi_Nhan", "Trong_So",
         "Ngay_Giao", "Han_Chot", "Trang_Thai", "Link_Chung_Minh", "Ngay_Hoan_Thanh",
-        "Danh_Gia_Sao", "Diem_KPI_Nhan", "Ghi_Chu_QL", "Thang", "Quy",
+        "Danh_Gia_Sao", "Diem_KPI_Nhan", "Ghi_Chu_QL", "Thang", "Quy", "Ghi_Chu_NV",
     ]
 
 

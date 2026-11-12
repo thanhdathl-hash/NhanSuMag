@@ -108,7 +108,7 @@ def test_sheet_warnings_trang_thai_la():
 
 def test_bao_cao_link_khi_co_hai_quan_ly_thi_luu_va_noi_ro(notifier, nv1):
     s = make_store(HAI_QL, tasks=[viec(Trang_Thai=c.TT_DANG_LAM)])
-    r = services.submit_task(s, notifier, nv1, ID, link="https://a.vn", today=D)
+    r = services.submit_task(s, notifier, nv1, ID, today=D)
     assert s.get_task(ID)[c.COL_TRANG_THAI] == c.TT_CHO_DUYET
     assert r.notified is False and c.ROLE_QUAN_LY in r.warning and notifier.sent == []
 
@@ -193,7 +193,6 @@ def test_doi_ten_cot_giua_chung_bao_ten_cot(app_env):
 def test_bao_cao_khi_thieu_quan_ly_hien_canh_bao_ro(app_env):
     store, _ = app_env(tasks=[viec(Trang_Thai=c.TT_DANG_LAM)], nhan_su=NHAN_SU[1:])
     at = dang_nhap(mo_app(), "NV01", "1234")
-    at.text_input(key=f"link_{ID}").set_value("https://a.vn")
     at.button(key=f"nop_{ID}").click().run()
     assert store.get_task(ID)[c.COL_TRANG_THAI] == c.TT_CHO_DUYET
     assert any(c.ROLE_QUAN_LY in w.value for w in at.warning)

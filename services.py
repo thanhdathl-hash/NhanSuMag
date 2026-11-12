@@ -162,7 +162,6 @@ def create_task(store, notifier, user: dict, *, ten_viec: str, mo_ta: str, nguoi
 # --- Thao tác của nhân viên ---
 
 _PNG, _JPG = b"\x89PNG\r\n\x1a\n", b"\xff\xd8\xff"
-_LINK = re.compile(r"https?://\S+")
 
 
 def _doc_viec(store, id_viec: str) -> dict:
@@ -194,20 +193,17 @@ def start_task(store, user: dict, id_viec: str) -> Result:
     return Result({**task, **thay_doi}, True)
 
 
-def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None = None,
+def submit_task(store, notifier, user: dict, id_viec: str, *, ghi_chu: str | None = None,
                 photo: bytes | None = None, photo_name: str | None = None, today: date) -> Result:
+    """Báo cáo hoàn thành. Không bắt buộc chứng minh; ảnh và ghi chú kết quả là tùy chọn."""
     task = _doc_viec(store, id_viec)
     _chi_nguoi_nhan(user, task)
     _can_trang_thai(task, [config.TT_DANG_LAM, config.TT_LAM_LAI])
 
-    link = (link or "").strip()
+    ghi_chu = (ghi_chu or "").strip()
+    if len(ghi_chu) > config.GHI_CHU_NV_TOI_DA:
+        raise InvalidInput(f"Ghi chú dài tối đa {config.GHI_CHU_NV_TOI_DA} ký tự.")
     co_anh = photo is not None
-    if link and co_anh:
-        raise InvalidInput("Chỉ chọn một cách chứng minh: dán link hoặc tải ảnh.")
-    if not link and not co_anh:
-        raise InvalidInput("Bắt buộc có chứng minh: dán link hoặc tải ảnh.")
-    if link and not _LINK.fullmatch(link):
-        raise InvalidInput("Link phải bắt đầu bằng http:// hoặc https:// và không có khoảng trắng.")
     if co_anh:
         if not (photo.startswith(_PNG) or photo.startswith(_JPG)):
             raise InvalidInput("Ảnh phải là file JPG hoặc PNG.")
@@ -224,21 +220,22 @@ def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None =
     if co_anh:
         if loi_ql:
             raise ServiceError(f"{loi_ql} Vì vậy chưa gửi được ảnh và việc chưa được báo cáo. "
-                               "Hãy báo quản lý, hoặc dán link thay thế.")
+                               "Hãy báo quản lý, hoặc báo cáo không kèm ảnh.")
         # Telegram là nơi duy nhất giữ ảnh: gửi được rồi mới chuyển trạng thái
         file_id = notifier.send_photo(chat_ql, photo, photo_name or "chung-minh.jpg",
-                                      tin.msg_t3(task, ten_nv, None))
+                                      tin.msg_t3(task, ten_nv, ghi_chu))
         if not file_id:
             raise ServiceError(
                 "Chưa gửi được ảnh qua Telegram (quản lý chưa có Telegram hoặc đường truyền lỗi). "
-                "Việc chưa được báo cáo. Hãy thử lại hoặc dán link thay thế.")
+                "Việc chưa được báo cáo. Hãy thử lại, hoặc báo cáo không kèm ảnh.")
         chung_minh, da_gui = config.TG_PREFIX + file_id, True
     else:
-        chung_minh, da_gui = link, None
+        chung_minh, da_gui = "", None     # nộp lại không kèm ảnh thì bỏ ảnh của lần trước
 
     thay_doi = {
         config.COL_TRANG_THAI: config.TT_CHO_DUYET,
         config.COL_LINK: chung_minh,
+        config.COL_GHI_CHU_NV: ghi_chu,
         config.COL_NGAY_HOAN_THANH: today.isoformat(),
     }
     store.update_task(id_viec, thay_doi)
@@ -246,7 +243,7 @@ def submit_task(store, notifier, user: dict, id_viec: str, *, link: str | None =
         return Result({**task, **thay_doi}, False,
                       warning=f"Đã lưu, nhưng chưa báo được cho quản lý qua Telegram. {loi_ql}")
     if da_gui is None:
-        da_gui = notifier.send_message(chat_ql, tin.msg_t3(task, ten_nv, link))    # T3
+        da_gui = notifier.send_message(chat_ql, tin.msg_t3(task, ten_nv, ghi_chu))    # T3
     return Result({**task, **thay_doi}, da_gui)
 
 

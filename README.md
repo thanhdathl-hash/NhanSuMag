@@ -39,7 +39,7 @@ Tạo một file Google Sheet mới với bốn bảng (tab). Tên bảng và t�
 
 **Bảng `Thu_Vien_Mau`**: `ID_Mau`, `Ten_Viec`, `Mo_Ta`, `Trong_So_Diem` (số nguyên 1 đến 5).
 
-**Bảng `Data_Giao_Viec`**: `ID_Viec`, `Ten_Viec`, `Mo_Ta`, `Nguoi_Nhan`, `Trong_So`, `Ngay_Giao`, `Han_Chot`, `Trang_Thai`, `Link_Chung_Minh`, `Ngay_Hoan_Thanh`, `Danh_Gia_Sao`, `Diem_KPI_Nhan`, `Ghi_Chu_QL`, `Thang`, `Quy`. Chỉ cần dòng tiêu đề, app tự thêm dòng khi giao việc.
+**Bảng `Data_Giao_Viec`**: `ID_Viec`, `Ten_Viec`, `Mo_Ta`, `Nguoi_Nhan`, `Trong_So`, `Ngay_Giao`, `Han_Chot`, `Trang_Thai`, `Link_Chung_Minh`, `Ngay_Hoan_Thanh`, `Danh_Gia_Sao`, `Diem_KPI_Nhan`, `Ghi_Chu_QL`, `Thang`, `Quy`, `Ghi_Chu_NV`. Chỉ cần dòng tiêu đề, app tự thêm dòng khi giao việc.
 
 **Bảng `Lich_Ca_Nhan`** (lịch trình cá nhân): `ID_Lich`, `ID_NV`, `Noi_Dung`, `Ngay`, `Gio_Bat_Dau`, `Gio_Ket_Thuc`, `Lap`, `Lap_Den`, `Da_Xong`. Chỉ cần dòng tiêu đề, app tự thêm dòng.
 
@@ -59,7 +59,7 @@ Chỉ chia sẻ file Sheet cho quản lý và service account. **Không chia s�
 2. Từng người (quản lý và 5 nhân viên) mở bot vừa tạo và bấm **Start**. Bot không thể nhắn cho người chưa bấm Start.
 3. Lấy chat ID của từng người: người đó nhắn `@userinfobot` và chép số ID nhận được vào cột `Telegram_ChatID`.
 
-Ảnh chứng minh được gửi vào cuộc trò chuyện giữa quản lý và bot, nên quản lý bắt buộc phải có `Telegram_ChatID`.
+Ảnh chứng minh (không bắt buộc) được gửi vào cuộc trò chuyện giữa quản lý và bot, nên muốn báo cáo kèm ảnh thì quản lý phải có `Telegram_ChatID`.
 
 ## 4. Chạy trên máy cá nhân
 
@@ -137,7 +137,7 @@ Phần này chưa được kiểm thử tự động. Làm lần lượt và đ�
 
 - [ ] Đăng nhập bằng ID và bằng số điện thoại. Nhập sai PIN 5 lần thì bị khóa 15 phút.
 - [ ] Quản lý giao một việc từ mẫu và một việc gõ tay. Nhân viên nhận được tin Telegram.
-- [ ] Nhân viên bấm Bắt đầu, rồi Báo cáo hoàn thành bằng link. Quản lý nhận được tin.
+- [ ] Nhân viên bấm Bắt đầu, rồi Báo cáo hoàn thành kèm một dòng ghi chú. Quản lý nhận được tin có ghi chú.
 - [ ] Nhân viên báo cáo một việc khác bằng ảnh. Ảnh xuất hiện trong Telegram của quản lý và trong tab Chờ duyệt.
 - [ ] Quản lý trả lại một việc kèm lý do. Nhân viên nhận tin và thấy lý do trong app.
 - [ ] Quản lý chấm sao và duyệt. Nhân viên nhận tin; cột `Diem_KPI_Nhan` và `KPI_Quy` trên Sheet có số.

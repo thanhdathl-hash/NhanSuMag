@@ -24,7 +24,7 @@ def test_tao_viec_ghi_du_cot(store, notifier, ql):
     assert (t[c.COL_TEN_VIEC], t[c.COL_MO_TA], t[c.COL_NGUOI_NHAN]) == ("Báo cáo tuần", "Gửi trước 17h", "NV01")
     assert (t[c.COL_TRANG_THAI], t[c.COL_NGAY_GIAO], t[c.COL_HAN_CHOT]) == (c.TT_MOI_GIAO, "2026-11-11", "2026-12-01")
     assert (t[c.COL_THANG], t[c.COL_QUY], t[c.COL_TRONG_SO]) == ("2026-12", "2026-Q4", "3")
-    assert t[c.COL_LINK] == t[c.COL_SAO] == t[c.COL_DIEM] == t[c.COL_NGAY_HOAN_THANH] == t[c.COL_GHI_CHU_QL] == ""
+    assert t[c.COL_LINK] == t[c.COL_SAO] == t[c.COL_DIEM] == t[c.COL_NGAY_HOAN_THANH] == t[c.COL_GHI_CHU_QL] == t[c.COL_GHI_CHU_NV] == ""
 
 
 def test_quy_theo_han_chot_khong_theo_ngay_giao(store, notifier, ql):

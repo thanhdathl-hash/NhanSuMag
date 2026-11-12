@@ -17,7 +17,7 @@ def test_dang_nhap_giao_bat_dau_bao_cao_duyet(app_env):
 
     dang_nhap(at, "0912345678", "1234")
     at.button(key=f"start_{id_viec}").click().run()
-    at.text_input(key=f"link_{id_viec}").set_value("https://a.vn")
+    at.text_area(key=f"ghichu_{id_viec}").set_value("Đã gửi báo cáo qua email")
     at.button(key=f"nop_{id_viec}").click().run()
     at.button(key="logout").click().run()
 
@@ -26,7 +26,7 @@ def test_dang_nhap_giao_bat_dau_bao_cao_duyet(app_env):
     at.button(key=f"duyet_{id_viec}").click().run()
 
     t = store.get_task(id_viec)
-    assert (t[c.COL_TRANG_THAI], t[c.COL_DIEM]) == (c.TT_HOAN_THANH, "3.6")      # đúng hạn, 5 sao: 3 × 1,0 × 1,2
+    assert (t[c.COL_TRANG_THAI], t[c.COL_DIEM], t[c.COL_GHI_CHU_NV]) == (c.TT_HOAN_THANH, "3.6", "Đã gửi báo cáo qua email")      # đúng hạn, 5 sao: 3 × 1,0 × 1,2
     assert store.employees().iloc[1][c.COL_KPI_QUY] == "120.0"
     assert [m[0] for m in notifier.sent] == ["201", "100", "201"]                # T1, T3, T4
     assert not at.exception

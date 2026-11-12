@@ -25,10 +25,11 @@ COL_NGAY_GIAO, COL_HAN_CHOT, COL_TRANG_THAI = "Ngay_Giao", "Han_Chot", "Trang_Th
 COL_LINK, COL_NGAY_HOAN_THANH = "Link_Chung_Minh", "Ngay_Hoan_Thanh"
 COL_SAO, COL_DIEM, COL_GHI_CHU_QL = "Danh_Gia_Sao", "Diem_KPI_Nhan", "Ghi_Chu_QL"
 COL_THANG, COL_QUY = "Thang", "Quy"
+COL_GHI_CHU_NV = "Ghi_Chu_NV"   # ghi chú kết quả của nhân viên khi báo cáo (không bắt buộc)
 VIEC_COLS = [
     COL_ID_VIEC, COL_TEN_VIEC, COL_MO_TA, COL_NGUOI_NHAN, COL_TRONG_SO,
     COL_NGAY_GIAO, COL_HAN_CHOT, COL_TRANG_THAI, COL_LINK, COL_NGAY_HOAN_THANH,
-    COL_SAO, COL_DIEM, COL_GHI_CHU_QL, COL_THANG, COL_QUY,
+    COL_SAO, COL_DIEM, COL_GHI_CHU_QL, COL_THANG, COL_QUY, COL_GHI_CHU_NV,
 ]
 
 # --- Bảng lịch trình cá nhân (spec mục 12.2) ---
@@ -67,6 +68,7 @@ SO_LAN_SAI_TOI_DA, KHOA_PHUT = 5, 15
 
 # --- Telegram ---
 TELEGRAM_TIMEOUT = 10
+GHI_CHU_NV_TOI_DA = 500
 TG_PREFIX = "tg:"
 # Bot API (theo tài liệu đã biết, chưa tra lại được từ môi trường viết code): sendPhoto tối đa 10 MB,
 # getFile tải về tối đa 20 MB. Kiểm tra lại trên core.telegram.org/bots/api khi triển khai.

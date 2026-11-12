@@ -200,6 +200,8 @@ def chi_tiet_viec(v: dict, ten_theo_id: dict | None) -> None:
     st.markdown("  \n".join(dong))
     if v[config.COL_MO_TA]:
         st.markdown(f"Mô tả: {ui.md_escape(v[config.COL_MO_TA])}")
+    if v[config.COL_GHI_CHU_NV]:
+        st.info(f"Ghi chú khi báo cáo: {v[config.COL_GHI_CHU_NV]}")
     if v[config.COL_GHI_CHU_QL]:
         st.warning(f"Lý do trả lại: {v[config.COL_GHI_CHU_QL]}")
     if v[config.COL_LINK]:
@@ -380,7 +382,7 @@ def cb_nop(id_viec: str) -> None:
     tep = st.session_state.get(f"anh_{id_viec}")
     thuc_hien(
         services.submit_task, get_store(), get_notifier(), st.session_state["user"], id_viec,
-        link=st.session_state.get(f"link_{id_viec}") or None,
+        ghi_chu=st.session_state.get(f"ghichu_{id_viec}", ""),
         photo=tep.getvalue() if tep is not None else None,
         photo_name=tep.name if tep is not None else None,
         today=services.hom_nay(),
@@ -409,8 +411,10 @@ def tab_viec_cua_toi(viec_cua_toi, lich_cua_toi) -> None:
                     st.button("Bắt đầu", key=f"start_{id_viec}", on_click=cb_bat_dau, args=(id_viec,))
                 if trang_thai in (config.TT_DANG_LAM, config.TT_LAM_LAI):
                     with st.form(f"nop_form_{id_viec}"):
-                        st.caption("Chứng minh hoàn thành: dán link HOẶC tải ảnh (chọn một).")
-                        st.text_input("Link chứng minh (http:// hoặc https://)", key=f"link_{id_viec}")
+                        st.caption("Ảnh và ghi chú không bắt buộc. Bấm nút dưới là báo cáo xong.")
+                        st.text_area("Ghi chú kết quả", key=f"ghichu_{id_viec}", height=80,
+                                     max_chars=config.GHI_CHU_NV_TOI_DA,
+                                     placeholder="Ví dụ: đã gọi 10 khách, 3 khách đặt hàng")
                         st.file_uploader(
                             f"Ảnh chứng minh (JPG hoặc PNG, tối đa {config.ANH_MAX_BYTES // (1024 * 1024)} MB)",
                             type=["jpg", "jpeg", "png"], key=f"anh_{id_viec}")
@@ -542,7 +546,7 @@ def hien_chung_minh(gia_tri: str) -> None:
     elif gia_tri:
         st.code(gia_tri)     # không phải link hợp lệ: chỉ hiện dạng chữ
     else:
-        st.caption("(Không có chứng minh)")
+        st.caption("(Không kèm ảnh)")
 
 
 def cb_duyet(id_viec: str) -> None:
@@ -567,6 +571,8 @@ def tab_cho_duyet(tasks, nhan_su) -> None:
             the_viec(v)
             st.caption(f"Người làm: {ten.get(v[config.COL_NGUOI_NHAN], v[config.COL_NGUOI_NHAN])} · "
                        f"Báo cáo ngày: {v[config.COL_NGAY_HOAN_THANH]}")
+            if v[config.COL_GHI_CHU_NV]:
+                st.info(f"Ghi chú của nhân viên: {v[config.COL_GHI_CHU_NV]}")
             hien_chung_minh(v[config.COL_LINK])
             cot_duyet, cot_tra = st.columns(2)
             with cot_duyet:

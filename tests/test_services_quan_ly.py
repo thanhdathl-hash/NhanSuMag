@@ -146,7 +146,7 @@ def test_tra_lai_thieu_ly_do(store, notifier, ql, ly_do):
 
 def test_tra_lai_roi_nop_lai_tinh_tre_theo_lan_cuoi(store, notifier, ql, nv1):
     services.return_task(store, notifier, ql, ID, ly_do="Sửa lại")
-    services.submit_task(store, notifier, nv1, ID, link="https://b.vn", today=date(2026, 11, 24))   # trễ 4 ngày
+    services.submit_task(store, notifier, nv1, ID, today=date(2026, 11, 24))   # trễ 4 ngày
     services.approve_task(store, notifier, ql, ID, stars=4, today=D)
     assert store.get_task(ID)[c.COL_DIEM] == "2.4"                                                   # 3 × 0,80 × 1,0
 

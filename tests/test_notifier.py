@@ -131,8 +131,8 @@ def test_fetch_photo_tai_ve_404_tra_none(gia_get):
 def test_noi_dung_tin():
     v = viec(Ten_Viec="Báo cáo tuần", Mo_Ta="Gửi trước 17h")
     assert all(x in msg_t1(v) for x in ["Báo cáo tuần", "2026-11-20", "3", "Gửi trước 17h"])
-    t3 = msg_t3(v, "Nguyễn An", "https://a.vn")
-    assert all(x in t3 for x in ["Nguyễn An", "Báo cáo tuần", "V-00000001", "https://a.vn", "2026-11-20"])
+    t3 = msg_t3(v, "Nguyễn An", "Đã gửi file")
+    assert all(x in t3 for x in ["Nguyễn An", "Báo cáo tuần", "V-00000001", "Đã gửi file", "2026-11-20"])
     assert "None" not in msg_t3(v, "Nguyễn An", None)
     assert all(x in msg_t4_duyet(v, 5, 3.6) for x in ["Báo cáo tuần", "5", "3.6"])
     assert "Thiếu số liệu" in msg_t4_tra_lai(v, "Thiếu số liệu") and "Báo cáo tuần" in msg_t4_tra_lai(v, "x")

@@ -85,13 +85,13 @@ def msg_t1(task: dict) -> str:
     return "\n".join(dong)
 
 
-def msg_t3(task: dict, ten_nv: str, link: str | None) -> str:
+def msg_t3(task: dict, ten_nv: str, ghi_chu: str | None) -> str:
     dong = [
         f"✅ {ten_nv} báo cáo hoàn thành: {task[config.COL_TEN_VIEC]} ({task[config.COL_ID_VIEC]})",
         f"Hạn chót: {task[config.COL_HAN_CHOT]}",
     ]
-    if link:
-        dong.append(f"Chứng minh: {link}")
+    if ghi_chu:
+        dong.append(f"Ghi chú: {ghi_chu}")
     dong.append("Mở app để nghiệm thu.")
     return "\n".join(dong)
 

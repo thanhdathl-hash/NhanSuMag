@@ -11,7 +11,7 @@ Một quản lý giao việc cho 5 nhân viên, theo dõi tiến độ, nghiệm
 Trong phạm vi:
 
 - Quản lý tạo việc từ mẫu hoặc gõ tay, nghiệm thu, chấm sao, xem tổng quan.
-- Nhân viên đăng nhập, xem việc của mình, bấm "Bắt đầu" và "Báo cáo hoàn thành" kèm chứng minh.
+- Nhân viên đăng nhập, xem việc của mình, bấm "Bắt đầu" và "Báo cáo hoàn thành", có thể kèm ảnh và ghi chú kết quả (không bắt buộc, cập nhật 2026-11-12).
 - Tính KPI quý theo công thức ở mục 7.
 - Thông báo Telegram ở bốn thời điểm (mục 8).
 - Đẩy việc được giao sang Google Calendar và lịch trình cá nhân (mục 12, thêm ngày 2026-11-12).
@@ -128,13 +128,14 @@ Cột đánh dấu (+) là cột thêm so với mô tả ban đầu của chủ 
 | `Ngay_Giao` | `YYYY-MM-DD` |
 | `Han_Chot` | `YYYY-MM-DD` |
 | `Trang_Thai` | `Mới giao`, `Đang làm`, `Chờ duyệt`, `Hoàn thành`, `Làm lại` |
-| `Link_Chung_Minh` | URL `http(s)://...` hoặc `tg:<file_id>` (ảnh gửi qua Telegram) |
+| `Link_Chung_Minh` | `tg:<file_id>` nếu báo cáo kèm ảnh (ảnh gửi qua Telegram), trống nếu không. Dữ liệu cũ có thể còn URL `http(s)://...`; app vẫn hiện thành link |
 | `Ngay_Hoan_Thanh` (+) | Ngày nhân viên bấm "Báo cáo hoàn thành" lần gần nhất. Cần để tính số ngày trễ |
 | `Danh_Gia_Sao` | 1 đến 5, quản lý chấm khi duyệt |
 | `Diem_KPI_Nhan` | Điểm thực tế của việc, ghi khi duyệt |
 | `Ghi_Chu_QL` (+) | Lý do trả lại |
 | `Thang` | `YYYY-MM`, tính từ `Han_Chot` |
 | `Quy` | `YYYY-Qn`, tính từ `Han_Chot`, ví dụ `2026-Q4` |
+| `Ghi_Chu_NV` (+) | Ghi chú kết quả nhân viên nhập khi báo cáo, không bắt buộc, tối đa 500 ký tự. Thêm 2026-11-12, nằm cuối bảng |
 
 Quy tắc chung:
 
@@ -151,7 +152,7 @@ Quản lý thấy toàn bộ dữ liệu. Nhân viên chỉ thấy các dòng c�
 |---|---|---|---|---|---|
 | Tạo việc | Quản lý | (chưa có) | Mới giao | Có tên, người nhận, hạn chót, trọng số 1 đến 5 | Báo nhân viên (T1) |
 | Bắt đầu | Nhân viên, đúng người nhận | Mới giao, Làm lại | Đang làm | | |
-| Báo cáo hoàn thành | Nhân viên, đúng người nhận | Đang làm, Làm lại | Chờ duyệt | Bắt buộc có link hoặc ảnh | Ghi `Ngay_Hoan_Thanh` = hôm nay; báo quản lý (T3) |
+| Báo cáo hoàn thành | Nhân viên, đúng người nhận | Đang làm, Làm lại | Chờ duyệt | Không bắt buộc chứng minh; ảnh và ghi chú là tùy chọn (chủ dự án quyết định bỏ ô dán link ngày 2026-11-12) | Ghi `Ngay_Hoan_Thanh` = hôm nay; báo quản lý (T3) |
 | Duyệt | Quản lý | Chờ duyệt | Hoàn thành | Bắt buộc chấm 1 đến 5 sao | Ghi `Danh_Gia_Sao`, `Diem_KPI_Nhan`; cập nhật `KPI_Quy`; báo nhân viên (T4) |
 | Trả lại | Quản lý | Chờ duyệt | Làm lại | Bắt buộc có lý do | Ghi `Ghi_Chu_QL`; báo nhân viên (T4) |
 
@@ -213,14 +214,14 @@ T4 không có trong yêu cầu ban đầu; được thêm vì nếu thiếu, nh�
 
 Nguyên tắc cho T1, T3, T4: ghi Sheet trước, gửi Telegram sau. Gửi thất bại không hủy thao tác; giao diện báo "đã lưu nhưng chưa gửi được thông báo". Mỗi lần gọi có giới hạn thời gian 10 giây.
 
-**Ảnh chứng minh.** Google Sheets không chứa được file ảnh, nên ảnh đi qua Telegram:
+**Ảnh chứng minh (không bắt buộc).** Google Sheets không chứa được file ảnh, nên ảnh đi qua Telegram:
 
 1. Nhân viên tải ảnh lên trong form báo cáo (JPG hoặc PNG, app giới hạn 5 MB).
 2. App gửi ảnh tới chat của quản lý bằng `sendPhoto`, chú thích là nội dung T3.
 3. App lấy `file_id` từ phản hồi và ghi `tg:<file_id>` vào `Link_Chung_Minh`.
 4. Khi quản lý nghiệm thu, app gọi `getFile`, tải ảnh ở phía máy chủ rồi hiển thị. Token của bot không bao giờ được gửi xuống trình duyệt.
 
-Với ảnh, bước 2 phải thành công thì mới chuyển trạng thái, vì Telegram là nơi duy nhất giữ ảnh. Nếu quản lý chưa có `Telegram_ChatID` hoặc gửi ảnh lỗi, app báo lỗi và đề nghị dán link thay thế. Khi triển khai, kiểm tra giới hạn kích thước hiện hành của Bot API cho `sendPhoto` và `getFile`.
+Với ảnh, bước 2 phải thành công thì mới chuyển trạng thái, vì Telegram là nơi duy nhất giữ ảnh. Nếu quản lý chưa có `Telegram_ChatID` hoặc gửi ảnh lỗi, app báo lỗi và đề nghị báo cáo không kèm ảnh. Khi triển khai, kiểm tra giới hạn kích thước hiện hành của Bot API cho `sendPhoto` và `getFile`.
 
 **T2, Apps Script.** Script gắn với file Sheet, chạy bằng trigger theo thời gian mỗi ngày vào khung 8h, múi giờ của script đặt là `Asia/Ho_Chi_Minh`. Trigger loại này chạy trong khung giờ đã chọn chứ không đúng từng phút. Script đọc `Data_Giao_Viec`, lọc các việc có `Han_Chot` bằng hôm nay và trạng thái thuộc `Mới giao`, `Đang làm`, `Làm lại`, gom theo người nhận và gửi mỗi người một tin. Token của bot nằm trong Script Properties, không nằm trong mã.
 
@@ -243,13 +244,13 @@ Quản lý, bốn tab:
   - Lịch tháng thể hiện hạn chót: mỗi ô ngày liệt kê các việc đến hạn hôm đó kèm tên người nhận, màu theo bốn nhóm trên; ô hôm nay được tô nổi; có nút chuyển tháng. Bấm vào một việc trên lịch mở hộp chi tiết (mô tả, trạng thái, ngày giao, hạn chót, trọng số, đánh giá, lý do trả lại, chứng minh); ngày có hơn ba việc gom thành "+n việc khác", bấm vào xem hết. Lịch chỉ để xem, không sửa việc.
   - Bảng KPI quý theo nhân viên và danh sách việc quá hạn.
 - **Giao việc:** chọn mẫu (tự điền tên, mô tả, trọng số) hoặc gõ tay; chọn người nhận và hạn chót.
-- **Chờ duyệt:** từng việc kèm chứng minh (link bấm được hoặc ảnh), chấm sao và duyệt, hoặc trả lại kèm lý do.
+- **Chờ duyệt:** từng việc kèm ghi chú và ảnh của nhân viên nếu có, chấm sao và duyệt, hoặc trả lại kèm lý do.
 - **Tất cả công việc:** bảng lọc theo nhân viên, trạng thái, quý.
 
 Nhân viên, hai tab:
 
 - Phía trên hai tab có bốn thẻ số liệu như của quản lý, tính trên việc của chính nhân viên.
-- **Việc của tôi:** lịch tháng hạn chót các việc của mình, rồi danh sách việc nhóm theo trạng thái. Việc `Làm lại` hiện lý do của quản lý. Nút "Bắt đầu"; form "Báo cáo hoàn thành" với hai lựa chọn dán link hoặc tải ảnh.
+- **Việc của tôi:** lịch tháng hạn chót các việc của mình, rồi danh sách việc nhóm theo trạng thái. Việc `Làm lại` hiện lý do của quản lý. Nút "Bắt đầu"; form "Báo cáo hoàn thành" với ô ghi chú kết quả và ô tải ảnh, cả hai đều không bắt buộc.
 - **KPI của tôi:** KPI quý hiện tại và số việc đã hoàn thành.
 
 Thẻ số liệu và lịch do app tự dựng bằng HTML (mọi chữ lấy từ Sheet đều được escape), biểu đồ dùng Altair đi kèm Streamlit; không thêm thư viện ngoài. Không làm: thanh điều hướng biểu tượng, ô tìm kiếm, chuông thông báo, nhãn tăng giảm phần trăm (chưa có dữ liệu lịch sử), kéo thả trên lịch.
@@ -267,7 +268,7 @@ Toàn bộ giao diện bằng tiếng Việt.
 ## 11. Kiểm thử
 
 - `kpi.py`: pytest theo bảng ca ở mục 7, thêm ca mẫu số bằng 0.
-- `services.py`: chạy với một lớp dữ liệu giả trong bộ nhớ. Kiểm tra từng dòng trong bảng chuyển trạng thái, và các ca bị từ chối: nhân viên thao tác trên việc của người khác, nhân viên tự duyệt, chuyển trạng thái sai thứ tự, báo cáo thiếu chứng minh.
+- `services.py`: chạy với một lớp dữ liệu giả trong bộ nhớ. Kiểm tra từng dòng trong bảng chuyển trạng thái, và các ca bị từ chối: nhân viên thao tác trên việc của người khác, nhân viên tự duyệt, chuyển trạng thái sai thứ tự, ảnh không hợp lệ, ghi chú quá dài.
 - `auth.py`: đúng PIN, sai PIN, khóa sau 5 lần, chuẩn hóa SĐT.
 - `notifier.py`: giả lập `requests`; lỗi mạng trả về thất bại chứ không ném lỗi.
 - Luồng giao diện: `streamlit.testing.v1.AppTest` với lớp dữ liệu giả, đi hết chuỗi đăng nhập, giao việc, bắt đầu, báo cáo, duyệt.
